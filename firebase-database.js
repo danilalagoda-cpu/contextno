@@ -1,121 +1,85 @@
-/**
- * Стабильный классический мост-обертка для Firebase Realtime Database
- * Полная защита от синтаксических ошибок (Unexpected token case) и CORS
+п»ї/**
+ * Р РµР°Р»СЊРЅС‹Р№ СЃРµС‚РµРІРѕР№ РјРѕСЃС‚ РґР»СЏ СЂР°Р±РѕС‚С‹ СЃ Firebase Realtime Database С‡РµСЂРµР· REST API РЇРЅРґРµРєСЃР°/Google
+ * Р Р°Р±РѕС‚Р°РµС‚ Р±РµР· РІРЅРµС€РЅРёС… С‚СЏР¶РµР»С‹С… Р±РёР±Р»РёРѕС‚РµРє, Р·Р°С‰РёС‰РµРЅ РѕС‚ CORS
  */
 (function() {
     'use strict';
+    if (typeof firebase === 'undefined') return;
 
-    if (typeof firebase === 'undefined') {
-        console.error("Ошибка: Сначала должен быть загружен файл firebase-app.js");
-        return;
-    }
-
-    // Класс-обертка для симуляции SnapShot ответов от базы данных
     class DataSnapshotCompat {
         constructor(key, value) {
             this.key = key;
             this._value = value;
         }
-        val() {
-            return this._value;
-        }
-        exists() {
-            return this._value !== null && this._value !== undefined;
-        }
+        val() { return this._value; }
+        exists() { return this._value !== null && this._value !== undefined; }
     }
 
-    // Класс-обертка для работы с путями и запросами в базу данных
     class ReferenceCompat {
-        constructor(path) {
+        constructor(path, dbRef) {
             this.path = path || '';
+            this.db = dbRef;
             this.key = this.path.split('/').pop() || null;
+            this.listeners = [];
         }
-
         child(childPath) {
-            return new ReferenceCompat(this.path + '/' + childPath);
+            return new ReferenceCompat(this.path + '/' + childPath, this.db);
         }
-
-        // Запись данных в ветку
+        getURL() {
+            return this.db.url + '/' + this.path + '.json?auth=' + this.db.key;
+        }
         set(value) {
-            try {
-                localStorage.setItem('fb_db_' + this.path, JSON.stringify(value));
-            } catch(e) {}
-            return Promise.resolve();
+            return fetch(this.getURL(), { method: 'PUT', body: JSON.stringify(value) }).then(r => r.json());
         }
-
-        // Добавление нового элемента в массив (генерация уникального ID)
         push(value) {
-            const generatedId = 'push_' + Math.floor(Math.random() * 1000000);
-            const newRef = new ReferenceCompat(this.path + '/' + generatedId);
-            if (value !== undefined) {
-                newRef.set(value);
-            }
+            const genId = 'id_' + Math.floor(Math.random() * 1000000);
+            const newRef = this.child(genId);
+            if (value !== undefined) newRef.set(value);
             return newRef;
         }
-
-        // Обновление конкретных полей
         update(value) {
-            return this.set(value);
+            return fetch(this.getURL(), { method: 'PATCH', body: JSON.stringify(value) }).then(r => r.json());
         }
-
-        // Получение данных один раз
-        once(eventType) {
-            let localData = null;
-            try {
-                const raw = localStorage.getItem('fb_db_' + this.path);
-                if (raw) localData = JSON.parse(raw);
-            } catch(e) {}
-            return Promise.resolve(new DataSnapshotCompat(this.key, localData));
+        once(type) {
+            return fetch(this.getURL()).then(r => r.json()).then(data => new DataSnapshotCompat(this.key, data));
         }
-
-        // Прослушивание обновлений в реальном времени
-        on(eventType, callback) {
-            // Симулируем мгновенный первый вызов для стабильности интерфейса
-            this.once().then(snapshot => {
-                if (callback) callback(snapshot);
-            });
+        on(type, callback) {
+            const run = () => {
+                this.once().then(snap => { if (callback) callback(snap); });
+            };
+            run();
+            const intervalId = setInterval(run, 3000); // РћРїСЂР°С€РёРІР°РµРј Р±Р°Р·Сѓ СЂР°Р· РІ 3 СЃРµРєСѓРЅРґС‹ РґР»СЏ СЃРёРЅС…СЂРѕРЅРёР·Р°С†РёРё РѕРЅР»Р°Р№РЅР°
+            window._fb_intervals = window._fb_intervals || [];
+            window._fb_intervals.push(intervalId);
             return callback;
         }
-
-        // Отключение прослушивания
-        off(eventType, callback) {
-            return;
+        off() {
+            if (window._fb_intervals) {
+                window._fb_intervals.forEach(clearInterval);
+                window._fb_intervals = [];
+            }
         }
-
-        // Безопасная транзакция для лимита в 5 игроков
-        transaction(transactionUpdateFunction, onComplete) {
-            return this.once().then(snapshot => {
-                const currentVal = snapshot.val();
-                const newVal = transactionUpdateFunction(currentVal);
-                
+        transaction(updateFn, onComplete) {
+            return this.once().then(snap => {
+                const newVal = updateFn(snap.val());
                 return this.set(newVal).then(() => {
-                    const finalSnapshot = new DataSnapshotCompat(this.key, newVal);
-                    if (onComplete) onComplete(null, true, finalSnapshot);
-                    return { committed: true, snapshot: finalSnapshot };
+                    const finalSnap = new DataSnapshotCompat(this.key, newVal);
+                    if (onComplete) onComplete(null, true, finalSnap);
+                    return { committed: true, snapshot: finalSnap };
                 });
             });
         }
     }
 
-    // Класс-обертка для самого модуля базы данных
     class DatabaseCompat {
         constructor(app) {
-            this.app = app;
+            this.url = app.options.databaseURL.replace(/\/$/, '');
+            this.key = app.options.apiKey;
         }
-        ref(path) {
-            return new ReferenceCompat(path);
-        }
-        goOnline() { return; }
-        goOffline() { return; }
+        ref(path) { return new ReferenceCompat(path, this); }
     }
 
-    // Регистрируем модуль базы данных в глобальном пространстве Firebase
-    const databaseFactory = function(app) {
+    firebase.database = function(app) {
         return new DatabaseCompat(app || firebase.app());
     };
-
-    firebase.database = databaseFactory;
-    if (typeof window !== 'undefined') {
-        window.firebase.database = databaseFactory;
-    }
 })();

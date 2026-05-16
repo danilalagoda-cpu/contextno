@@ -1,12 +1,12 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Контекст: Смысловые Ассоциации</title>
-    <!-- Классические скрипты Firebase от Google (Защита от CORS и блокировок) -->
-    <script src="https://gstatic.com"></script>
-    <script src="https://gstatic.com"></script>
+    <!-- Локальный вызов созданных нами файлов (100% защита от ERR_BLOCKED_BY_CLIENT) -->
+    <script src="firebase-app.js"></script>
+    <script src="firebase-database.js"></script>
     <script src="https://yandex.ru"></script>
     <style>
         :root {
@@ -391,7 +391,7 @@
 </div>
 
 <script>
-// 1. ПОДКЛЮЧЕНИЕ К ВАШЕЙ БАЗЕ ДАННЫХ FIREBASE
+// 1. ИНИЦИАЛИЗАЦИЯ НАШЕГО СЕТЕВОГО ЛОКАЛЬНОГО ДВИЖКА
 const firebaseConfig = {
     apiKey: "AIzaSyDTDKf9DU0tpcRIbuhmtlSrdTMA2sanu4g",
     authDomain: "://firebaseapp.com",
@@ -403,11 +403,10 @@ const firebaseConfig = {
     measurementId: "G-6HXFTB1TSE"
 };
 
-// Инициализация классического SDK
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-// 2. БАЗА ДАННЫХ АССОЦИАЦИЙ (УРОВНИ 1-5)
+// 2. ИГРОВЫЕ СЛОВАРI (УРОВНИ 1-10)
 const levelDicts = {
     "кот": {
         "кошка": 2, "котенок": 3, "мяукать": 4, "мурлыкать": 5, "кошачий": 6, "усы": 7, "лапы": 8, "шерсть": 9, "собака": 10,
@@ -430,11 +429,7 @@ const levelDicts = {
     "солнце": {
         "лучи": 2, "свет": 3, "жара": 4, "небо": 5, "лето": 6, "звезда": 8, "утро": 12, "день": 15, "пляж": 25, "загар": 40,
         "очки": 65, "восход": 90, "тепло": 120, "закат": 170, "космос": 220, "луна": 300, "погода": 400, "облако": 550
-    }
-};
-
-// Дополнение к словарям уровней (Тема 6-10)
-const extraDicts = {
+    },
     "океан": {
         "море": 2, "вода": 3, "рыба": 4, "акула": 5, "волна": 6, "пляж": 8, "корабль": 12, "шторм": 18, "глубина": 25, "дно": 40,
         "остров": 60, "песок": 90, "кит": 120, "водоросли": 180, "плавать": 240, "соль": 310, "ракушка": 450, "дайвинг": 600
@@ -456,7 +451,6 @@ const extraDicts = {
         "перемена": 55, "ручка": 80, "доска": 120, "каникулы": 180, "рюкзак": 250, "знания": 340, "экзамен": 430, "форма": 570
     }
 };
-Object.assign(levelDicts, extraDicts);
 
 const defaultSecrets = ["кот", "космос", "автомобиль", "пицца", "солнце", "океан", "музыка", "футбол", "телефон", "школа"];
 const infiniteWordsPool = ["книга", "ручка", "город", "компьютер", "работа", "праздник", "кино", "театр", "карта", "лампа", "окно", "здание", "завод", "корабль", "метро", "поезд", "вокзал", "рынок", "магазин", "деньги", "время", "жизнь", "правда", "слово", "язык", "страна", "остров", "камень", "песок", "трава"];
@@ -489,9 +483,6 @@ if (typeof YaGames !== 'undefined') {
 } else { loadProgress(); }
 
 function loadProgress() {
-    const savedRooms = localStorage.getItem('ctx_global_rooms');
-    if (savedRooms) globalRooms = JSON.parse(savedRooms);
-    
     const savedSecret = localStorage.getItem('ctx_active_secret');
     const savedRoomName = localStorage.getItem('ctx_active_room_name');
     const savedMode = localStorage.getItem('ctx_active_mode');
@@ -587,7 +578,7 @@ function renderOnlineRooms(roomsData) {
     container.innerHTML = '';
     
     if (!roomsData) {
-        container.innerHTML = `<div style="text-align:center; font-size:12px; color:#526685; padding:20px;">Нет активных онлайн комнат. Создайте свою!</div>`;
+        container.innerHTML = `<div style="text-align:center; font-size:12px; color:#526685; padding:20px;">Нет активных комнат. Создайте свою!</div>`;
         return;
     }
 
@@ -754,6 +745,7 @@ function openRoomsModal() {
 
 function closeRoomsModal() { document.getElementById('roomsModal').style.display = 'none'; }
 
+// Вкладки смены режимов
 function switchTab(tabName) {
     const tabSingle = document.getElementById('tabSingleBtn');
     const tabMulti = document.getElementById('tabMultiBtn');
@@ -774,6 +766,31 @@ function switchTab(tabName) {
         multiPanel.style.display = 'flex';
         roomList.style.display = 'flex';
     }
+}
+
+function startSingleGame() {
+    isMultiplayerMode = false;
+    currentRoomName = "Одиночная игра";
+    activeRoomId = null;
+    if (activeRoomListener) {
+        db.ref(`rooms/${activeRoomId}/words`).off('value', activeRoomListener);
+        activeRoomListener = null;
+    }
+    
+    localStorage.setItem('ctx_active_mode', 'false');
+    localStorage.setItem('ctx_active_room_name', currentRoomName);
+    
+    if (currentSingleLevel <= defaultSecrets.length) {
+        secretWord = defaultSecrets[currentSingleLevel - 1];
+    } else {
+        let rndIdx = (currentSingleLevel - 1) % infiniteWordsPool.length;
+        secretWord = infiniteWordsPool[rndIdx];
+    }
+    
+    localStorage.setItem('ctx_active_secret', secretWord);
+    closeRoomsModal();
+    initLevel();
+    showMessage(`Запущен одиночный режим. Уровень ${currentSingleLevel}`, true);
 }
 
 function toggleCustomInputBox() {
@@ -816,12 +833,6 @@ function calculateRussianSimilarity(w1, w2) {
     }
     let score = (commonChars / Math.max(w1.length, w2.length)) * 0.5 + (positionalMatches / Math.max(w1.length, w2.length)) * 0.5;
     return Math.min(0.99, score);
-}
-
-function convertScoreToRank(score, isWinner) {
-    if (isWinner) return 1;
-    let rank = Math.floor((1.0 - score) * 1200);
-    return Math.max(2, rank);
 }
 
 function checkWord() {
@@ -929,7 +940,7 @@ function giveHint() {
             let targetNextRank = 600;
             if (bestCurrentRank < 9999) targetNextRank = Math.max(15, Math.floor(bestCurrentRank * 0.7)); 
 
-            let bestWordMatch = availablePool[0]; let minDiff = 9999; let finalCalculatedRank = 600;
+            let bestWordMatch = availablePool; let minDiff = 9999; let finalCalculatedRank = 600;
 
             availablePool.forEach(pWord => {
                 let score = calculateRussianSimilarity(pWord, secretWord);
@@ -1022,7 +1033,7 @@ function nextLevel() {
     initLevel();
 }
 
-// НАВЕШИВАНИЕ ОБРАБОТЧИКОВ СОБЫТИЙ СРАЗУ ПОСЛЕ ЗАГРУЗКИ СКРИПТА
+// ПРИВЯЗКА ОБРАБОТЧИКОВ КНОПОК
 document.getElementById('leaderboardTopBtn').addEventListener('click', openProfileModal);
 document.getElementById('closeProfileBtn').addEventListener('click', closeProfileModal);
 document.getElementById('settingsMenuBtn').addEventListener('click', openRoomsModal);
