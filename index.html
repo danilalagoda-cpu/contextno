@@ -3,7 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Контекстно: Угадай Слово</title>
+    <title>Контекст: Смысловые Ассоциации</title>
+    <!-- Официальные классические библиотеки Firebase (Защита от CORS) -->
+    <script src="https://gstatic.com"></script>
+    <script src="https://gstatic.com"></script>
     <script src="https://yandex.ru"></script>
     <style>
         :root {
@@ -318,7 +321,7 @@
 <div class="app-window">
     <div class="header">
         <button class="header-icon" id="leaderboardTopBtn">🏆</button>
-        <h1 id="gameTitle">Контекстно</h1>
+        <h1 id="gameTitle">Контекст</h1>
         <button class="header-icon" id="settingsMenuBtn">⚙️</button>
     </div>
 
@@ -389,12 +392,8 @@
     <div class="history-list" id="historyLog"></div>
 </div>
 
-<script type="module">
-// 1. ИМПОРТ МОДУЛЕЙ FIREBASE ЧЕРЕЗ НЕУБИВАЕМЫЙ CDN CLOUDFLARE (ИСПРАВЛЕНИЕ ОШИБКИ CORS)
-import { initializeApp } from "https://cloudflare.com";
-import { getDatabase, ref, set, push, onValue, get, runTransaction } from "https://cloudflare.com";
-
-// 2. ВАШИ КЛЮЧИ ПОДКЛЮЧЕНИЯ
+<script>
+// 1. НАСТРОЙКА КЛАССИЧЕСКОГО FIREBASE (БЕЗ CORS ОШИБОК)
 const firebaseConfig = {
     apiKey: "AIzaSyDTDKf9DU0tpcRIbuhmtlSrdTMA2sanu4g",
     authDomain: "://firebaseapp.com",
@@ -406,10 +405,11 @@ const firebaseConfig = {
     measurementId: "G-6HXFTB1TSE"
 };
 
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
+// Инициализируем классический SDK глобально
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
 
-// 3. ИГРОВЫЕ СЛОВАРI
+// 2. ИГРОВЫЕ СЛОВАРI
 const levelDicts = {
     "кот": {
         "кошка": 2, "котенок": 3, "мяукать": 4, "мурлыкать": 5, "кошачий": 6, "усы": 7, "лапы": 8, "шерсть": 9, "собака": 10,
@@ -477,22 +477,6 @@ let leaderBoardData = [
 ];
 
 let globalRooms = [];
-
-// ГЛОБАЛЬНЫЙ ЭКСПОРТ
-window.openProfileModal = openProfileModal;
-window.closeProfileModal = closeProfileModal;
-window.openRoomsModal = openRoomsModal;
-window.closeRoomsModal = closeRoomsModal;
-window.saveCustomName = saveCustomName;
-window.switchTab = switchTab;
-window.startSingleGame = startSingleGame;
-window.createRoomRandom = createRoomRandom;
-window.toggleCustomInputBox = toggleCustomInputBox;
-window.submitCustomRoom = submitCustomRoom;
-window.checkWord = checkWord;
-window.showRewardVideo = showRewardVideo;
-window.nextLevel = nextLevel;
-window.toggleSubmitBtn = toggleSubmitBtn;
 
 if (typeof YaGames !== 'undefined') {
     YaGames.init().then(sdk => {
@@ -587,8 +571,8 @@ function saveCustomName() {
 }
 
 function listenToGlobalRooms() {
-    const roomsRef = ref(db, 'rooms');
-    onValue(roomsRef, (snapshot) => {
+    const roomsRef = db.ref('rooms');
+    roomsRef.on('value', (snapshot) => {
         const roomsData = snapshot.val();
         renderOnlineRooms(roomsData);
     });
@@ -627,7 +611,7 @@ function renderOnlineRooms(roomsData) {
 
 function createRoomOnFirebase(word, typeName) {
     const roomId = Math.floor(100 + Math.random() * 900);
-    const roomRef = ref(db, 'rooms/' + roomId);
+    const roomRef = db.ref('rooms/' + roomId);
 
     const roomData = {
         creatorId: userId,
@@ -638,40 +622,41 @@ function createRoomOnFirebase(word, typeName) {
     };
     roomData.players[userId] = playerName;
 
-    set(roomRef, roomData).then(() => {
+    roomRef.set(roomData).then(() => {
         listenToActiveRoom(roomId);
     });
 }
 
 function joinOnlineRoom(roomId) {
-    const playersRef = ref(db, `rooms/${roomId}/players`);
-    runTransaction(playersRef, (currentPlayers) => {
+    const playersRef = db.ref(`rooms/${roomId}/players`);
+    playersRef.transaction((currentPlayers) => {
         if (currentPlayers === null) currentPlayers = {};
         if (currentPlayers[userId]) return currentPlayers;
         let keys = Object.keys(currentPlayers);
         if (keys.length >= 5) return; 
         currentPlayers[userId] = playerName;
         return currentPlayers;
-    }).then((result) => {
-        if (!result.committed) {
+    }, (error, committed, snapshot) => {
+        if (!committed) {
             showMessage("Ошибка: в этой комнате уже заняты все 5 мест!");
         } else {
             listenToActiveRoom(roomId);
         }
-    }).catch(() => {
-        showMessage("Не удалось подключиться к комнате.");
     });
 }
 
 let activeRoomListener = null;
 function listenToActiveRoom(roomId) {
-    if (activeRoomListener) activeRoomListener(); 
+    if (activeRoomListener) {
+        db.ref(`rooms/${activeRoomId}/words`).off('value', activeRoomListener);
+    }
+    
     activeRoomId = roomId;
     isMultiplayerMode = true;
     closeRoomsModal();
     initLevel();
 
-    get(ref(db, `rooms/${roomId}`)).then((snapshot) => {
+    db.ref(`rooms/${roomId}`).once('value').then((snapshot) => {
         const data = snapshot.val();
         if (data) {
             secretWord = data.secret;
@@ -681,8 +666,8 @@ function listenToActiveRoom(roomId) {
         }
     });
 
-    const wordsRef = ref(db, `rooms/${roomId}/words`);
-    activeRoomListener = onValue(wordsRef, (snapshot) => {
+    const wordsRef = db.ref(`rooms/${roomId}/words`);
+    activeRoomListener = wordsRef.on('value', (snapshot) => {
         const wordsData = snapshot.val();
         if (wordsData) {
             guessedWords = Object.keys(wordsData).map(key => wordsData[key]);
@@ -753,7 +738,6 @@ function openRoomsModal() {
         <button class="action-btn primary" id="startSingleGameInlineBtn" style="margin-top:12px; width:100%; padding:10px;">Играть соло</button>
     `;
 
-    // Привязываем события внутри динамического HTML-кода
     setTimeout(() => {
         const btnSave = document.getElementById('saveNameInlineBtn');
         const btnStart = document.getElementById('startSingleGameInlineBtn');
@@ -793,7 +777,10 @@ function startSingleGame() {
     isMultiplayerMode = false;
     currentRoomName = "Одиночная игра";
     activeRoomId = null;
-    if (activeRoomListener) { activeRoomListener(); activeRoomListener = null; }
+    if (activeRoomListener) {
+        db.ref(`rooms/${activeRoomId}/words`).off('value', activeRoomListener);
+        activeRoomListener = null;
+    }
     
     localStorage.setItem('ctx_active_mode', 'false');
     localStorage.setItem('ctx_active_room_name', currentRoomName);
@@ -884,8 +871,7 @@ function checkWord() {
     const newWordObj = { word: word, rank: rank, isHint: false, userName: playerName };
 
     if (isMultiplayerMode && activeRoomId) {
-        const roomWordsRef = push(ref(db, `rooms/${activeRoomId}/words`));
-        set(roomWordsRef, newWordObj);
+        db.ref(`rooms/${activeRoomId}/words`).push(newWordObj);
     } else {
         attempts++;
         guessedWords.push(newWordObj);
@@ -989,8 +975,7 @@ function giveHint() {
     const hintWordObj = { word: targetWord, rank: targetRank, isHint: true, userName: playerName };
 
     if (isMultiplayerMode && activeRoomId) {
-        const roomWordsRef = push(ref(db, `rooms/${activeRoomId}/words`));
-        set(roomWordsRef, hintWordObj);
+        db.ref(`rooms/${activeRoomId}/words`).push(hintWordObj);
     } else {
         hintsUsed++; attempts++;
         guessedWords.push(hintWordObj);
@@ -1044,7 +1029,6 @@ function nextLevel() {
     isMultiplayerMode = false;
     currentRoomName = "Одиночная игра";
     activeRoomId = null;
-    if (activeRoomListener) { activeRoomListener(); activeRoomListener = null; }
     
     currentSingleLevel++;
     localStorage.setItem('ctx_single_level_num', currentSingleLevel);
@@ -1060,19 +1044,16 @@ function nextLevel() {
     initLevel();
 }
 
-// ─── ПРЯМАЯ И БЕЗОПАСНАЯ НАВЕСКА ОБРАБОТЧИКОВ НА КНОПКИ ВНУТРИ МОДУЛЯ ───
+// НАДЁЖНЫЕ НАПРАВЛЕННЫЕ СЛУШАТЕЛИ КНОПОК
 document.getElementById('leaderboardTopBtn').addEventListener('click', openProfileModal);
 document.getElementById('closeProfileBtn').addEventListener('click', closeProfileModal);
 document.getElementById('settingsMenuBtn').addEventListener('click', openRoomsModal);
 document.getElementById('closeRoomsBtn').addEventListener('click', closeRoomsModal);
-
 document.getElementById('tabSingleBtn').addEventListener('click', () => switchTab('single'));
 document.getElementById('tabMultiBtn').addEventListener('click', () => switchTab('multi'));
-
 document.getElementById('createRoomRandomBtn').addEventListener('click', createRoomRandom);
 document.getElementById('toggleCustomInputBtn').addEventListener('click', toggleCustomInputBox);
 document.getElementById('submitCustomRoomBtn').addEventListener('click', submitCustomRoom);
-
 document.getElementById('submitBtn').addEventListener('click', checkWord);
 document.getElementById('hintActionBtn').addEventListener('click', showRewardVideo);
 document.getElementById('wordInput').addEventListener('input', toggleSubmitBtn);
