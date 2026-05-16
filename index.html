@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Контекст: Смысловые Ассоциации</title>
+    <title>Контекстно: Угадай Слово</title>
     <!-- Локальный вызов созданных нами файлов (100% защита от ERR_BLOCKED_BY_CLIENT) -->
     <script src="firebase-app.js"></script>
     <script src="firebase-database.js"></script>
@@ -720,6 +720,7 @@ function closeProfileModal() { document.getElementById('profileModal').style.dis
 
 function openRoomsModal() {
     const singlePanel = document.getElementById('singleModePanel');
+    // ПОЧИНИЛИ КНОПКУ: убрали дублирующий onclick из разметки
     singlePanel.innerHTML = `
         <div style="background: rgba(0,0,0,0.3); border:1px solid var(--border-color); padding:10px; width:100%; box-sizing:border-box; margin-bottom:12px;">
             <span style="font-size:11px; color:#7e94b3; display:block; margin-bottom:5px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Ваш никнейм:</span>
@@ -851,7 +852,6 @@ function checkWord() {
     }
 }
 
-// ФУНКЦИЯ ОТРИСОВКИ СЛОВ С УЧЕТОМ НИКНЕЙМА ОТПРАВИТЕЛЯ
 function renderHistory() {
     const log = document.getElementById('historyLog');
     log.innerHTML = '';
@@ -866,8 +866,6 @@ function renderHistory() {
         else { color = '#ef4444'; width = 15; }
 
         const hintTagHtml = item.isHint ? `<span class="word-hint-tag">💡 ПОДСКАЗКА</span>` : '';
-        
-        // КРАСИВАЯ ПЛАШКА С НИКОМ ИГРОКА (Если режим сетевой и имя заполнено)
         let userTagHtml = '';
         if (isMultiplayerMode && item.userName) {
             userTagHtml = `<span class="word-user-tag">[${item.userName}]</span> `;
@@ -961,6 +959,7 @@ function giveHint() {
     }
 }
 
+// АВТОМАТИЧЕСКОЕ УДАЛЕНИЕ КОВАТЫ (ПОСЛЕ ПОБЕДЫ ИЛИ СПУСТЯ 5 ЧАСОВ)
 function handleWin() {
     document.getElementById('wordInput').disabled = true;
     const selfGuessed = guessedWords.filter(w => !w.isHint).length;
@@ -976,6 +975,12 @@ function handleWin() {
         }
     } else {
         winMessageStatsText = `Поздравляем! Команда успешно расшифровала онлайн-слово.`;
+        // Если это онлайн-комната — удаляем её из базы данных через 5 секунд после победы
+        if (activeRoomId) {
+            setTimeout(() => {
+                db.ref(`rooms/${activeRoomId}`).remove();
+            }, 5000);
+        }
     }
 
     document.getElementById('winScreen').style.display = 'block';
@@ -989,14 +994,6 @@ function handleWin() {
     } else {
         winBtn.innerText = "Следующий уровень";
         winBtn.onclick = function() { nextLevel(); };
-    }
-    
-    if (ysdk) {
-        ysdk.adv.showFullscreenAdv();
-        ysdk.getPlayer().then(player => {
-            player.setData({ level: currentSingleLevel, fair_score: fairScore, name: playerName });
-        }).catch(() => {});
-        ysdk.getLeaderboards().then(lb => { lb.setLeaderboardScore('fair_top', fairScore); }).catch(() => {});
     }
 }
 
@@ -1019,7 +1016,49 @@ function nextLevel() {
     initLevel();
 }
 
-// ПРИВЯЗКА ОБРАБОТЧИКОВ КНОПОК
+function createRoomOnFirebase(word, typeName) {
+    const roomId = Math.floor(100 + Math.random() * 900);
+    const roomRef = db.ref('rooms/' + roomId);
+
+    const roomData = {
+        creatorId: userId,
+        creatorName: playerName,
+        type: typeName,
+        secret: word,
+        createdAt: Date.now(), // Записываем точное время создания
+        players: {}
+    };
+    roomData.players[userId] = playerName;
+
+    roomRef.set(roomData).then(() => {
+        listenToActiveRoom(roomId);
+    });
+}
+
+function listenToGlobalRooms() {
+    const roomsRef = db.ref('rooms');
+    roomsRef.on('value', (snapshot) => {
+        const roomsData = snapshot.val();
+        
+        // УМНАЯ САМООЧИСТКА: Удаляем комнаты, которые висят дольше 5 часов
+        if (roomsData) {
+            const now = Date.now();
+            const fiveHoursInMs = 5 * 60 * 60 * 1000;
+            
+            Object.keys(roomsData).forEach(roomId => {
+                const room = roomsData[roomId];
+                if (room.createdAt && (now - room.createdAt > fiveHoursInMs)) {
+                    db.ref(`rooms/${roomId}`).remove();
+                    delete roomsData[roomId];
+                }
+            });
+        }
+        
+        renderOnlineRooms(roomsData);
+    });
+}
+
+// ДИНАМИЧЕСКАЯ НАВЕСКА ОБРАБОТЧИКОВ КНОПОК
 document.getElementById('leaderboardTopBtn').addEventListener('click', openProfileModal);
 document.getElementById('closeProfileBtn').addEventListener('click', closeProfileModal);
 document.getElementById('settingsMenuBtn').addEventListener('click', openRoomsModal);
@@ -1039,3 +1078,4 @@ document.getElementById('wordInput').addEventListener('keypress', function (e) {
 </script>
 </body>
 </html>
+
