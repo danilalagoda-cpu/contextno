@@ -1,6 +1,6 @@
 /**
  * Реальный сетевой мост для работы с Firebase Realtime Database через REST API
- * Сверхстабильная версия с жесткой ссылкой на вашу базу данных
+ * Сверхстабильная версия с функцией удаления комнат (CORS Protected)
  */
 (function() {
     'use strict';
@@ -25,8 +25,7 @@
             return new ReferenceCompat(this.path + '/' + childPath, this.db);
         }
         getURL() {
-            // Мертвая хватка: шлем запросы строго на ваш выделенный сервер в Бельгии
-            return 'https://contextno-e9b35-default-rtdb.europe-west1.firebasedatabase.app/' + this.path + '.json';
+            return 'https://firebasedatabase.app' + this.path + '.json';
         }
         set(value) {
             return fetch(this.getURL(), { method: 'PUT', body: JSON.stringify(value) }).then(r => r.json());
@@ -40,6 +39,9 @@
         update(value) {
             return fetch(this.getURL(), { method: 'PATCH', body: JSON.stringify(value) }).then(r => r.json());
         }
+        remove() {
+            return fetch(this.getURL(), { method: 'DELETE' }).then(r => r.json());
+        }
         once(type) {
             return fetch(this.getURL()).then(r => r.json()).then(data => new DataSnapshotCompat(this.key, data)).catch(() => new DataSnapshotCompat(this.key, null));
         }
@@ -48,7 +50,7 @@
                 this.once().then(snap => { if (callback) callback(snap); });
             };
             run();
-            const intervalId = setInterval(run, 3000); // Опрашиваем вашу базу раз в 3 секунды
+            const intervalId = setInterval(run, 3000);
             window._fb_intervals = window._fb_intervals || [];
             window._fb_intervals.push(intervalId);
             return callback;
@@ -72,9 +74,7 @@
     }
 
     class DatabaseCompat {
-        constructor(app) {
-            // Ссылка зафиксирована внутри ReferenceCompat
-        }
+        constructor(app) {}
         ref(path) { return new ReferenceCompat(path, this); }
     }
 
