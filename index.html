@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Контекст: Смысловые Ассоциации</title>
-    <!-- Неубиваемые стабильные скрипты Firebase (Защита от блокировок провайдеров и CORS) -->
-    <script src="firebase-app.js"></script>
-    <script src="firebase-database.js"></script>
+    <!-- Классические скрипты Firebase от Google (Защита от CORS и блокировок) -->
+    <script src="https://gstatic.com"></script>
+    <script src="https://gstatic.com"></script>
     <script src="https://yandex.ru"></script>
     <style>
         :root {
@@ -391,7 +391,7 @@
 </div>
 
 <script>
-// 1. ИНИЦИАЛИЗАЦИЯ FIREBASE ЧЕРЕЗ СЕРВЕРА ЯНДЕКС CDN
+// 1. ПОДКЛЮЧЕНИЕ К ВАШЕЙ БАЗЕ ДАННЫХ FIREBASE
 const firebaseConfig = {
     apiKey: "AIzaSyDTDKf9DU0tpcRIbuhmtlSrdTMA2sanu4g",
     authDomain: "://firebaseapp.com",
@@ -403,10 +403,11 @@ const firebaseConfig = {
     measurementId: "G-6HXFTB1TSE"
 };
 
+// Инициализация классического SDK
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-// 2. ИГРОВЫЕ СЛОВАРI (ПЕРВАЯ ПОЛОВИНА УРОВНЕЙ)
+// 2. БАЗА ДАННЫХ АССОЦИАЦИЙ (УРОВНИ 1-5)
 const levelDicts = {
     "кот": {
         "кошка": 2, "котенок": 3, "мяукать": 4, "мурлыкать": 5, "кошачий": 6, "усы": 7, "лапы": 8, "шерсть": 9, "собака": 10,
@@ -586,7 +587,7 @@ function renderOnlineRooms(roomsData) {
     container.innerHTML = '';
     
     if (!roomsData) {
-        container.innerHTML = `<div style="text-align:center; font-size:12px; color:#526685; padding:20px;">Нет activeных онлайн комнат. Создайте свою!</div>`;
+        container.innerHTML = `<div style="text-align:center; font-size:12px; color:#526685; padding:20px;">Нет активных онлайн комнат. Создайте свою!</div>`;
         return;
     }
 
@@ -859,22 +860,11 @@ function checkWord() {
     }
 }
 
-function updateHistoryView(log, item, width, color, hintTagHtml, userTagHtml) {
-    row.innerHTML = `
-        <div style="position: absolute; top:0; left:0; bottom:0; width: ${width}%; background: linear-gradient(90deg, ${color}, rgba(0,0,0,0)); opacity: 0.45; transition: width 0.4s ease;"></div>
-        <span class="word-text">${userTagHtml}${item.word}${hintTagHtml}</span>
-        <span class="rank-badge" style="border-color: ${color}; color: ${color}">
-            ${item.rank}
-        </span>
-    `;
-    log.appendChild(row);
-}
-
 function renderHistory() {
     const log = document.getElementById('historyLog');
     log.innerHTML = '';
     guessedWords.forEach(item => {
-        window.row = document.createElement('div');
+        const row = document.createElement('div');
         row.className = 'word-row';
         let color = '#ef4444'; let width = 6;
         
@@ -886,7 +876,14 @@ function renderHistory() {
         const hintTagHtml = item.isHint ? `<span class="word-hint-tag">💡 ПОДСКАЗКА</span>` : '';
         const userTagHtml = (isMultiplayerMode && item.userName && item.userName !== playerName) ? `<span class="word-user-tag">${item.userName}</span>` : '';
 
-        updateHistoryView(log, item, width, color, hintTagHtml, userTagHtml);
+        row.innerHTML = `
+            <div style="position: absolute; top:0; left:0; bottom:0; width: ${width}%; background: linear-gradient(90deg, ${color}, rgba(0,0,0,0)); opacity: 0.45; transition: width 0.4s ease;"></div>
+            <span class="word-text">${userTagHtml}${item.word}${hintTagHtml}</span>
+            <span class="rank-badge" style="border-color: ${color}; color: ${color}">
+                ${item.rank}
+            </span>
+        `;
+        log.appendChild(row);
     });
 }
 
@@ -921,7 +918,7 @@ function giveHint() {
 
         if (availableWords.length > 0) {
             availableWords.sort((a, b) => levelDicts[secretWord][b] - levelDicts[secretWord][a]);
-            targetWord = availableWords;
+            targetWord = availableWords[availableWords.length - 1];
             targetRank = levelDicts[secretWord][targetWord];
         }
     }
@@ -932,7 +929,7 @@ function giveHint() {
             let targetNextRank = 600;
             if (bestCurrentRank < 9999) targetNextRank = Math.max(15, Math.floor(bestCurrentRank * 0.7)); 
 
-            let bestWordMatch = availablePool; let minDiff = 9999; let finalCalculatedRank = 600;
+            let bestWordMatch = availablePool[0]; let minDiff = 9999; let finalCalculatedRank = 600;
 
             availablePool.forEach(pWord => {
                 let score = calculateRussianSimilarity(pWord, secretWord);
@@ -1025,7 +1022,7 @@ function nextLevel() {
     initLevel();
 }
 
-// НАДЁЖНЫЕ НАПРАВЛЕННЫЕ СЛУШАТЕЛИ КНОПОК
+// НАВЕШИВАНИЕ ОБРАБОТЧИКОВ СОБЫТИЙ СРАЗУ ПОСЛЕ ЗАГРУЗКИ СКРИПТА
 document.getElementById('leaderboardTopBtn').addEventListener('click', openProfileModal);
 document.getElementById('closeProfileBtn').addEventListener('click', closeProfileModal);
 document.getElementById('settingsMenuBtn').addEventListener('click', openRoomsModal);
