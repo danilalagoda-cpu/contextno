@@ -1,9 +1,9 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Контекст: Смысловые Ассоциации</title>
+    <title>Контекстно: Угадай Слово</title>
     <script src="https://yandex.ru"></script>
     <style>
         :root {
@@ -318,7 +318,7 @@
 <div class="app-window">
     <div class="header">
         <button class="header-icon" id="leaderboardTopBtn">🏆</button>
-        <h1 id="gameTitle">Контекст</h1>
+        <h1 id="gameTitle">Контекстно</h1>
         <button class="header-icon" id="settingsMenuBtn">⚙️</button>
     </div>
 
@@ -390,11 +390,11 @@
 </div>
 
 <script type="module">
-// 1. ИМПОРТ МОДУЛЕЙ FIREBASE (Исправленная ссылка)
-import { initializeApp } from "https://gstatic.com";
-import { getDatabase, ref, set, push, onValue, get, runTransaction } from "https://gstatic.com";
+// 1. ИМПОРТ МОДУЛЕЙ FIREBASE ЧЕРЕЗ НЕУБИВАЕМЫЙ CDN CLOUDFLARE (ИСПРАВЛЕНИЕ ОШИБКИ CORS)
+import { initializeApp } from "https://cloudflare.com";
+import { getDatabase, ref, set, push, onValue, get, runTransaction } from "https://cloudflare.com";
 
-// 2. КЛЮЧИ ПОДКЛЮЧЕНИЯ
+// 2. ВАШИ КЛЮЧИ ПОДКЛЮЧЕНИЯ
 const firebaseConfig = {
     apiKey: "AIzaSyDTDKf9DU0tpcRIbuhmtlSrdTMA2sanu4g",
     authDomain: "://firebaseapp.com",
@@ -477,6 +477,22 @@ let leaderBoardData = [
 ];
 
 let globalRooms = [];
+
+// ГЛОБАЛЬНЫЙ ЭКСПОРТ
+window.openProfileModal = openProfileModal;
+window.closeProfileModal = closeProfileModal;
+window.openRoomsModal = openRoomsModal;
+window.closeRoomsModal = closeRoomsModal;
+window.saveCustomName = saveCustomName;
+window.switchTab = switchTab;
+window.startSingleGame = startSingleGame;
+window.createRoomRandom = createRoomRandom;
+window.toggleCustomInputBox = toggleCustomInputBox;
+window.submitCustomRoom = submitCustomRoom;
+window.checkWord = checkWord;
+window.showRewardVideo = showRewardVideo;
+window.nextLevel = nextLevel;
+window.toggleSubmitBtn = toggleSubmitBtn;
 
 if (typeof YaGames !== 'undefined') {
     YaGames.init().then(sdk => {
