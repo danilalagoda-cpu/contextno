@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Контекстно: Угадай Слово</title>
+    <title>Контекст: Смысловые Ассоциации</title>
     <script src="https://yandex.ru"></script>
     <style>
         :root {
@@ -317,16 +317,16 @@
 
 <div class="app-window">
     <div class="header">
-        <button class="header-icon" id="leaderboardTopBtn">🏆</button>
-        <h1 id="gameTitle">Контекстно</h1>
-        <button class="header-icon" id="settingsMenuBtn">⚙️</button>
+        <button class="header-icon" onclick="window.openProfileModal()" title="Таблица лидеров">🏆</button>
+        <h1 id="gameTitle">Контекст</h1>
+        <button class="header-icon" onclick="window.openRoomsModal()" title="Выбор режима">⚙️</button>
     </div>
 
     <!-- Модальное окно ЛИДЕРБОРДА -->
     <div class="modal-overlay" id="profileModal">
         <div class="modal-header">
             <h2>🏆 Таблица лидеров (Честный Топ)</h2>
-            <button class="header-icon" id="closeProfileBtn">✕</button>
+            <button class="header-icon" onclick="window.closeProfileModal()">✕</button>
         </div>
         <div class="room-list" id="leaderboardListContainer" style="display:flex;"></div>
     </div>
@@ -335,26 +335,26 @@
     <div class="modal-overlay" id="roomsModal">
         <div class="modal-header">
             <h2>⚙️ Настройки и Режимы</h2>
-            <button class="header-icon" id="closeRoomsBtn">✕</button>
+            <button class="header-icon" onclick="window.closeRoomsModal()">✕</button>
         </div>
         
         <div class="mode-tabs">
-            <button class="mode-tab-btn active" id="tabSingleBtn">Одиночная игра</button>
-            <button class="mode-tab-btn" id="tabMultiBtn">Комнаты (Онлайн)</button>
+            <button class="mode-tab-btn active" id="tabSingleBtn" onclick="window.switchTab('single')">Одиночная игра</button>
+            <button class="mode-tab-btn" id="tabMultiBtn" onclick="window.switchTab('multi')">Комнаты (Онлайн)</button>
         </div>
 
         <div class="single-info-panel" id="singleModePanel"></div>
         
         <div class="create-panel" id="multiCreatePanel">
             <div class="create-buttons-grid">
-                <button class="action-btn primary" id="createRoomRandomBtn">Случайное слово</button>
-                <button class="action-btn" id="toggleCustomInputBtn">Загадать своё</button>
+                <button class="action-btn primary" onclick="window.createRoomRandom()">Случайное слово</button>
+                <button class="action-btn" onclick="window.toggleCustomInputBox()">Загадать своё</button>
             </div>
             <div class="custom-input-box" id="customInputBox">
                 <span style="font-size:11px; color:#7e94b3;">Введите секретное слово:</span>
                 <div style="display:flex; gap:6px;">
-                    <input type="text" id="customWordField" placeholder="слово...">
-                    <button class="action-btn primary" id="submitCustomRoomBtn" style="padding:0 12px;">ОК</button>
+                    <input type="text" id="customWordField" placeholder="слово..." style="flex:1;">
+                    <button class="action-btn primary" onclick="window.submitCustomRoom()" style="padding:0 12px;">ОК</button>
                 </div>
                 <div class="error-text" id="customWordError">Ошибка: только русские буквы (от 2 букв)</div>
             </div>
@@ -367,7 +367,7 @@
         <div class="status-item" id="gameId">Уровень: 1</div>
         <div class="status-item" id="attemptsCount">Попыток: 0</div>
         <div class="status-item" id="hintsCount" style="grid-column: span 2; background: rgba(0, 188, 212, 0.05); color: #00bcd4;">Подсказок использовано: 0</div>
-        <button class="hint-btn" id="hintActionBtn">
+        <button class="hint-btn" onclick="window.showRewardVideo()">
             💡 Получить подсказку (за рекламу)
         </button>
     </div>
@@ -378,23 +378,23 @@
         <h2>Поздравляем! 🎉</h2>
         <p id="winMessageCount"></p>
         <p id="winMessageStats" style="font-weight: bold; color: #fff;"></p>
-        <button class="win-btn" id="winActionButton">Следующий уровень</button>
+        <button class="win-btn" id="winActionButton" onclick="window.nextLevel()">Следующий уровень</button>
     </div>
 
     <div class="input-container">
         <input type="text" id="wordInput" placeholder="Введите слово..." autocomplete="off">
-        <button id="submitBtn" class="submit-btn">➔</button>
+        <button id="submitBtn" class="submit-btn" onclick="window.checkWord()">➔</button>
     </div>
 
     <div class="history-list" id="historyLog"></div>
 </div>
 
 <script type="module">
-// 1. ИМПОРТ МОДУЛЕЙ FIREBASE (Официальный CDN)
+// 1. ИМПОРТ МОДУЛЕЙ FIREBASE
 import { initializeApp } from "https://gstatic.com";
-import { getDatabase, ref, set, push, onValue, get, update, runTransaction } from "https://gstatic.com";
+import { getDatabase, ref, set, push, onValue, get, runTransaction } from "https://gstatic.com";
 
-// 2. ВАШИ ИНДИВИДУАЛЬНЫЕ КЛЮЧИ ПОДКЛЮЧЕНИЯ К БАЗЕ
+// 2. ВАШИ КЛЮЧИ ПОДКЛЮЧЕНИЯ
 const firebaseConfig = {
     apiKey: "AIzaSyDTDKf9DU0tpcRIbuhmtlSrdTMA2sanu4g",
     authDomain: "://firebaseapp.com",
@@ -406,11 +406,10 @@ const firebaseConfig = {
     measurementId: "G-6HXFTB1TSE"
 };
 
-// Инициализация базы данных
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-// 3. ИГРОВЫЕ СЛОВАРI И ПЕРЕМЕННЫЕ
+// 3. ИГРОВЫЕ СЛОВАРI
 const levelDicts = {
     "кот": {
         "кошка": 2, "котенок": 3, "мяукать": 4, "мурлыкать": 5, "кошачий": 6, "усы": 7, "лапы": 8, "шерсть": 9, "собака": 10,
@@ -465,7 +464,7 @@ let isMultiplayerMode = false;
 let currentSingleLevel = 1;
 let fairScore = 0; 
 let playerName = "Игрок";
-let userId = "user_" + Math.floor(Math.random() * 100000); // Уникальный id сессии
+let userId = "user_" + Math.floor(Math.random() * 100000);
 
 let attempts = 0;
 let hintsUsed = 0;
@@ -473,12 +472,28 @@ let guessedWords = [];
 let activeRoomId = null; 
 let ysdk = null;
 
-// Изначальные локальные рекорды
 let leaderBoardData = [
     { name: "Словесный_Маг", score: 45 }, { name: "Контекст_Нинзя", score: 38 }, { name: "Эрудит2026", score: 32 }
 ];
 
-// 4. ИНИЦИАЛИЗАЦИЯ И ЗАГРУЗКА ЯНДЕКС SDK
+let globalRooms = [];
+
+// 4. ГЛОБАЛЬНЫЙ ЭКСПОРТ ДЛЯ HTML (ЖЕСТКАЯ ПРИВЯЗКА К WINDOW)
+window.openProfileModal = openProfileModal;
+window.closeProfileModal = closeProfileModal;
+window.openRoomsModal = openRoomsModal;
+window.closeRoomsModal = closeRoomsModal;
+window.saveCustomName = saveCustomName;
+window.switchTab = switchTab;
+window.startSingleGame = startSingleGame;
+window.createRoomRandom = createRoomRandom;
+window.toggleCustomInputBox = toggleCustomInputBox;
+window.submitCustomRoom = submitCustomRoom;
+window.checkWord = checkWord;
+window.showRewardVideo = showRewardVideo;
+window.nextLevel = nextLevel;
+window.toggleSubmitBtn = toggleSubmitBtn;
+
 if (typeof YaGames !== 'undefined') {
     YaGames.init().then(sdk => {
         ysdk = sdk;
@@ -487,6 +502,9 @@ if (typeof YaGames !== 'undefined') {
 } else { loadProgress(); }
 
 function loadProgress() {
+    const savedRooms = localStorage.getItem('ctx_global_rooms');
+    if (savedRooms) globalRooms = JSON.parse(savedRooms);
+    
     const savedSecret = localStorage.getItem('ctx_active_secret');
     const savedRoomName = localStorage.getItem('ctx_active_room_name');
     const savedMode = localStorage.getItem('ctx_active_mode');
@@ -501,15 +519,14 @@ function loadProgress() {
     if (savedFairScore) fairScore = parseInt(savedFairScore);
     if (savedName) playerName = savedName;
 
-    // Если игра закрылась в мультиплеере, перенаправляем в сингл для безопасности
     if(isMultiplayerMode) {
         isMultiplayerMode = false;
         currentRoomName = "Одиночная игра";
-        secretWord = defaultSecrets[0];
+        secretWord = "кот";
     }
 
     initLevel();
-    listenToGlobalRooms(); // Начинаем отслеживать онлайн-комнаты из Firebase
+    listenToGlobalRooms(); 
 }
 
 function initLevel() {
@@ -541,35 +558,24 @@ function updateStatus() {
 
 function showMessage(text, isInfo = false) {
     const msgBox = document.getElementById('systemMessage');
-    msgBox.innerText = text;
-    msgBox.classList.toggle('info', isInfo);
-    msgBox.style.display = 'block';
+    if(msgBox) {
+        msgBox.innerText = text;
+        msgBox.classList.toggle('info', isInfo);
+        msgBox.style.display = 'block';
+    }
 }
 
-function hideMessage() { document.getElementById('systemMessage').style.display = 'none'; }
+function hideMessage() { 
+    const msgBox = document.getElementById('systemMessage');
+    if(msgBox) msgBox.style.display = 'none'; 
+}
 
 function toggleSubmitBtn() {
     const input = document.getElementById('wordInput');
     const btn = document.getElementById('submitBtn');
-    btn.classList.toggle('active', input.value.trim().length > 0);
+    if(input && btn) btn.classList.toggle('active', input.value.trim().length > 0);
 }
 
-// ─── СВЯЗЫВАНИЕ ИНТЕРФЕЙСА С МОДУЛЬНЫМИ ФУНКЦИЯМИ ───
-window.openProfileModal = openProfileModal;
-window.closeProfileModal = closeProfileModal;
-window.openRoomsModal = openRoomsModal;
-window.closeRoomsModal = closeRoomsModal;
-window.saveCustomName = saveCustomName;
-window.switchTab = switchTab;
-window.startSingleGame = startSingleGame;
-window.createRoomRandom = createRoomRandom;
-window.toggleCustomInputBox = toggleCustomInputBox;
-window.submitCustomRoom = submitCustomRoom;
-window.checkWord = checkWord;
-window.showRewardVideo = showRewardVideo;
-window.nextLevel = nextLevel;
-
-// Смена ника в настройках
 function saveCustomName() {
     const nameInput = document.getElementById('playerNameField').value.trim();
     if (nameInput.length > 0) {
@@ -580,9 +586,6 @@ function saveCustomName() {
     }
 }
 
-// ─── СЕТЕВАЯ СИНХРОНИЗАЦИЯ ЧЕРЕЗ FIREBASE REALTIME DATABASE ───
-
-// 1. Слушаем список доступных комнат в облаке
 function listenToGlobalRooms() {
     const roomsRef = ref(db, 'rooms');
     onValue(roomsRef, (snapshot) => {
@@ -603,14 +606,10 @@ function renderOnlineRooms(roomsData) {
 
     Object.keys(roomsData).forEach(roomId => {
         const room = roomsData[roomId];
-        
-        // Считаем количество активных людей в комнате
         let playersCount = room.players ? Object.keys(room.players).length : 0;
 
         const item = document.createElement('div');
         item.className = 'room-item';
-        
-        // Клик по комнате запускает транзакцию входа
         item.onclick = () => joinOnlineRoom(roomId);
         
         item.innerHTML = `
@@ -626,7 +625,6 @@ function renderOnlineRooms(roomsData) {
     });
 }
 
-// 2. Создание новой комнаты в облаке
 function createRoomOnFirebase(word, typeName) {
     const roomId = Math.floor(100 + Math.random() * 900);
     const roomRef = ref(db, 'rooms/' + roomId);
@@ -638,8 +636,6 @@ function createRoomOnFirebase(word, typeName) {
         secret: word,
         players: {}
     };
-    
-    // Добавляем создателя как первого игрока
     roomData.players[userId] = playerName;
 
     set(roomRef, roomData).then(() => {
@@ -647,26 +643,13 @@ function createRoomOnFirebase(word, typeName) {
     });
 }
 
-// 3. Безопасный вход в комнату С ЛИМИТОМ ДО 5 ЧЕЛОВЕК (Используем транзакции)
 function joinOnlineRoom(roomId) {
     const playersRef = ref(db, `rooms/${roomId}/players`);
-    
     runTransaction(playersRef, (currentPlayers) => {
-        if (currentPlayers === null) {
-            currentPlayers = {};
-        }
-        
-        let keys = Object.keys(currentPlayers);
-        
-        // Если игрок уже внутри комнаты
+        if (currentPlayers === null) currentPlayers = {};
         if (currentPlayers[userId]) return currentPlayers;
-        
-        // ПРОВЕРКА ЛИМИТА ИГРОКОВ (НЕ БОЛЕЕ 5 ЧЕЛОВЕК)
-        if (keys.length >= 5) {
-            return; // Прерываем транзакцию, мест нет
-        }
-        
-        // Добавляем нас в список
+        let keys = Object.keys(currentPlayers);
+        if (keys.length >= 5) return; 
         currentPlayers[userId] = playerName;
         return currentPlayers;
     }).then((result) => {
@@ -680,17 +663,14 @@ function joinOnlineRoom(roomId) {
     });
 }
 
-// 4. Подключение прослушивания чата слов внутри активной комнаты
 let activeRoomListener = null;
 function listenToActiveRoom(roomId) {
-    if (activeRoomListener) activeRoomListener(); // Сбрасываем старый слушатель
-
+    if (activeRoomListener) activeRoomListener(); 
     activeRoomId = roomId;
     isMultiplayerMode = true;
     closeRoomsModal();
     initLevel();
 
-    // Запрашиваем секретное слово комнаты один раз
     get(ref(db, `rooms/${roomId}`)).then((snapshot) => {
         const data = snapshot.val();
         if (data) {
@@ -701,20 +681,15 @@ function listenToActiveRoom(roomId) {
         }
     });
 
-    // Начинаем слушать ветку слов этой комнаты в реальном времени
     const wordsRef = ref(db, `rooms/${roomId}/words`);
     activeRoomListener = onValue(wordsRef, (snapshot) => {
         const wordsData = snapshot.val();
         if (wordsData) {
-            // Пересобираем массив слов на основе данных из облака
             guessedWords = Object.keys(wordsData).map(key => wordsData[key]);
-            // Сортируем по рангу
             guessedWords.sort((a, b) => a.rank - b.rank);
             attempts = guessedWords.length;
             updateStatus();
             renderHistory();
-            
-            // Если кто-то из 5 игроков отгадал слово
             if (guessedWords.some(w => w.word === secretWord)) {
                 handleWin();
             }
@@ -722,7 +697,6 @@ function listenToActiveRoom(roomId) {
     });
 }
 
-// ─── ИНТЕРФЕЙСНЫЕ ФУНКЦИИ ОКН ───
 function openProfileModal() {
     let updatedLeaderboard = [...leaderBoardData];
     let userRow = updatedLeaderboard.find(p => p.name === playerName);
@@ -776,13 +750,12 @@ function openRoomsModal() {
             </div>
         </div>
         <p style="margin:0; font-size:13px; color:#cbd5e1; line-height:1.5;"><b>Классический режим.</b> Отгадывайте бесконечные секретные слова, генерируемые системой. Прогресс сохраняется в облако.</p>
-        <button class="action-btn primary" onclick="startSingleGame()" style="margin-top:12px; width:100%; padding:10px;">Играть соло</button>
+        <button class="action-btn primary" onclick="window.startSingleGame()" style="margin-top:12px; width:100%; padding:10px;">Играть соло</button>
     `;
 
-    // Привязываем клик внутри динамической разметки
     setTimeout(() => {
         const btn = document.getElementById('saveNameInlineBtn');
-        if(btn) btn.onclick = saveCustomName;
+        if(btn) btn.onclick = window.saveCustomName;
     }, 50);
 
     switchTab(isMultiplayerMode ? 'multi' : 'single');
@@ -861,7 +834,6 @@ function submitCustomRoom() {
     createRoomOnFirebase(word, "Своё слово");
 }
 
-// ─── ЛИНГВИСТИЧЕСКИЙ АНАЛИЗ И ОБРАБОТКА ВВОДА СЛОВ ───
 function calculateRussianSimilarity(w1, w2) {
     if (w1 === w2) return 1.0;
     let commonChars = 0;
@@ -908,12 +880,10 @@ function checkWord() {
 
     const newWordObj = { word: word, rank: rank, isHint: false, userName: playerName };
 
-    // Если режим ОНЛАЙН мультиплеера — отправляем слово в Firebase для всех игроков
     if (isMultiplayerMode && activeRoomId) {
         const roomWordsRef = push(ref(db, `rooms/${activeRoomId}/words`));
         set(roomWordsRef, newWordObj);
     } else {
-        // Одиночный режим: пушим локально
         attempts++;
         guessedWords.push(newWordObj);
         guessedWords.sort((a, b) => a.rank - b.rank);
@@ -937,7 +907,6 @@ function renderHistory() {
         else { color = '#ef4444'; width = 15; }
 
         const hintTagHtml = item.isHint ? `<span class="word-hint-tag">💡 ПОДСКАЗКА</span>` : '';
-        // Если слово прислал другой сетевой игрок, помечаем его никнеймом
         const userTagHtml = (isMultiplayerMode && item.userName && item.userName !== playerName) ? `<span class="word-user-tag">${item.userName}</span>` : '';
 
         row.innerHTML = `
@@ -1049,23 +1018,6 @@ function handleWin() {
     document.getElementById('winScreen').style.display = 'block';
     document.getElementById('winMessageCount').innerText = `Вы угадали секретное слово за ${attempts} попыток!`;
     document.getElementById('winMessageStats').innerText = winMessageStatsText;
-    
-    const winBtn = document.getElementById('winActionButton');
-    if (isMultiplayerMode) {
-        winBtn.innerText = "Вернуться в лобби";
-        winBtn.onclick = function() { openRoomsModal(); };
-    } else {
-        winBtn.innerText = "Следующий уровень";
-        winBtn.onclick = function() { nextLevel(); };
-    }
-    
-    if (ysdk) {
-        ysdk.adv.showFullscreenAdv();
-        ysdk.getPlayer().then(player => {
-            player.setData({ level: currentSingleLevel, fair_score: fairScore, name: playerName });
-        }).catch(() => {});
-        ysdk.getLeaderboards().then(lb => { lb.setLeaderboardScore('fair_top', fairScore); }).catch(() => {});
-    }
 }
 
 function nextLevel() {
@@ -1087,24 +1039,6 @@ function nextLevel() {
     localStorage.setItem('ctx_active_secret', secretWord);
     initLevel();
 }
-
-// Навешиваем слушатели на кнопки при старте модуля
-document.getElementById('leaderboardTopBtn').onclick = openProfileModal;
-document.getElementById('closeProfileBtn').onclick = closeProfileModal;
-document.getElementById('settingsMenuBtn').onclick = openRoomsModal;
-document.getElementById('closeRoomsBtn').onclick = closeRoomsModal;
-document.getElementById('tabSingleBtn').onclick = () => switchTab('single');
-document.getElementById('tabMultiBtn').onclick = () => switchTab('multi');
-document.getElementById('createRoomRandomBtn').onclick = createRoomRandom;
-document.getElementById('toggleCustomInputBtn').onclick = toggleCustomInputBox;
-document.getElementById('submitCustomRoomBtn').onclick = submitCustomRoom;
-document.getElementById('submitBtn').onclick = checkWord;
-document.getElementById('hintActionBtn').onclick = showRewardVideo;
-document.getElementById('wordInput').oninput = toggleSubmitBtn;
-
-document.getElementById('wordInput').addEventListener('keypress', function (e) { 
-    if (e.key === 'Enter') checkWord(); 
-});
 </script>
 </body>
 </html>
