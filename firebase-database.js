@@ -1,6 +1,6 @@
-﻿/**
- * Реальный сетевой мост для работы с Firebase Realtime Database через REST API Яндекса/Google
- * Работает без внешних тяжелых библиотек, защищен от CORS
+/**
+ * Реальный сетевой мост для работы с Firebase Realtime Database через REST API
+ * Сверхстабильная версия с жесткой ссылкой на вашу базу данных
  */
 (function() {
     'use strict';
@@ -20,13 +20,13 @@
             this.path = path || '';
             this.db = dbRef;
             this.key = this.path.split('/').pop() || null;
-            this.listeners = [];
         }
         child(childPath) {
             return new ReferenceCompat(this.path + '/' + childPath, this.db);
         }
         getURL() {
-            return this.db.url + '/' + this.path + '.json?auth=' + this.db.key;
+            // Мертвая хватка: шлем запросы строго на ваш выделенный сервер в Бельгии
+            return 'https://contextno-e9b35-default-rtdb.europe-west1.firebasedatabase.app/' + this.path + '.json';
         }
         set(value) {
             return fetch(this.getURL(), { method: 'PUT', body: JSON.stringify(value) }).then(r => r.json());
@@ -41,14 +41,14 @@
             return fetch(this.getURL(), { method: 'PATCH', body: JSON.stringify(value) }).then(r => r.json());
         }
         once(type) {
-            return fetch(this.getURL()).then(r => r.json()).then(data => new DataSnapshotCompat(this.key, data));
+            return fetch(this.getURL()).then(r => r.json()).then(data => new DataSnapshotCompat(this.key, data)).catch(() => new DataSnapshotCompat(this.key, null));
         }
         on(type, callback) {
             const run = () => {
                 this.once().then(snap => { if (callback) callback(snap); });
             };
             run();
-            const intervalId = setInterval(run, 3000); // Опрашиваем базу раз в 3 секунды для синхронизации онлайна
+            const intervalId = setInterval(run, 3000); // Опрашиваем вашу базу раз в 3 секунды
             window._fb_intervals = window._fb_intervals || [];
             window._fb_intervals.push(intervalId);
             return callback;
@@ -73,8 +73,7 @@
 
     class DatabaseCompat {
         constructor(app) {
-            this.url = app.options.databaseURL.replace(/\/$/, '');
-            this.key = app.options.apiKey;
+            // Ссылка зафиксирована внутри ReferenceCompat
         }
         ref(path) { return new ReferenceCompat(path, this); }
     }
