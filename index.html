@@ -317,16 +317,16 @@
 
 <div class="app-window">
     <div class="header">
-        <button class="header-icon" onclick="window.openProfileModal()" title="Таблица лидеров">🏆</button>
+        <button class="header-icon" id="leaderboardTopBtn">🏆</button>
         <h1 id="gameTitle">Контекст</h1>
-        <button class="header-icon" onclick="window.openRoomsModal()" title="Выбор режима">⚙️</button>
+        <button class="header-icon" id="settingsMenuBtn">⚙️</button>
     </div>
 
     <!-- Модальное окно ЛИДЕРБОРДА -->
     <div class="modal-overlay" id="profileModal">
         <div class="modal-header">
             <h2>🏆 Таблица лидеров (Честный Топ)</h2>
-            <button class="header-icon" onclick="window.closeProfileModal()">✕</button>
+            <button class="header-icon" id="closeProfileBtn">✕</button>
         </div>
         <div class="room-list" id="leaderboardListContainer" style="display:flex;"></div>
     </div>
@@ -335,26 +335,26 @@
     <div class="modal-overlay" id="roomsModal">
         <div class="modal-header">
             <h2>⚙️ Настройки и Режимы</h2>
-            <button class="header-icon" onclick="window.closeRoomsModal()">✕</button>
+            <button class="header-icon" id="closeRoomsBtn">✕</button>
         </div>
         
         <div class="mode-tabs">
-            <button class="mode-tab-btn active" id="tabSingleBtn" onclick="window.switchTab('single')">Одиночная игра</button>
-            <button class="mode-tab-btn" id="tabMultiBtn" onclick="window.switchTab('multi')">Комнаты (Онлайн)</button>
+            <button class="mode-tab-btn active" id="tabSingleBtn">Одиночная игра</button>
+            <button class="mode-tab-btn" id="tabMultiBtn">Комнаты (Онлайн)</button>
         </div>
 
         <div class="single-info-panel" id="singleModePanel"></div>
         
         <div class="create-panel" id="multiCreatePanel">
             <div class="create-buttons-grid">
-                <button class="action-btn primary" onclick="window.createRoomRandom()">Случайное слово</button>
-                <button class="action-btn" onclick="window.toggleCustomInputBox()">Загадать своё</button>
+                <button class="action-btn primary" id="createRoomRandomBtn">Случайное слово</button>
+                <button class="action-btn" id="toggleCustomInputBtn">Загадать своё</button>
             </div>
             <div class="custom-input-box" id="customInputBox">
                 <span style="font-size:11px; color:#7e94b3;">Введите секретное слово:</span>
                 <div style="display:flex; gap:6px;">
                     <input type="text" id="customWordField" placeholder="слово..." style="flex:1;">
-                    <button class="action-btn primary" onclick="window.submitCustomRoom()" style="padding:0 12px;">ОК</button>
+                    <button class="action-btn primary" id="submitCustomRoomBtn" style="padding:0 12px;">ОК</button>
                 </div>
                 <div class="error-text" id="customWordError">Ошибка: только русские буквы (от 2 букв)</div>
             </div>
@@ -367,7 +367,7 @@
         <div class="status-item" id="gameId">Уровень: 1</div>
         <div class="status-item" id="attemptsCount">Попыток: 0</div>
         <div class="status-item" id="hintsCount" style="grid-column: span 2; background: rgba(0, 188, 212, 0.05); color: #00bcd4;">Подсказок использовано: 0</div>
-        <button class="hint-btn" onclick="window.showRewardVideo()">
+        <button class="hint-btn" id="hintActionBtn">
             💡 Получить подсказку (за рекламу)
         </button>
     </div>
@@ -378,23 +378,23 @@
         <h2>Поздравляем! 🎉</h2>
         <p id="winMessageCount"></p>
         <p id="winMessageStats" style="font-weight: bold; color: #fff;"></p>
-        <button class="win-btn" id="winActionButton" onclick="window.nextLevel()">Следующий уровень</button>
+        <button class="win-btn" id="winActionButton">Следующий уровень</button>
     </div>
 
     <div class="input-container">
         <input type="text" id="wordInput" placeholder="Введите слово..." autocomplete="off">
-        <button id="submitBtn" class="submit-btn" onclick="window.checkWord()">➔</button>
+        <button id="submitBtn" class="submit-btn">➔</button>
     </div>
 
     <div class="history-list" id="historyLog"></div>
 </div>
 
 <script type="module">
-// 1. ИМПОРТ МОДУЛЕЙ FIREBASE
+// 1. ИМПОРТ МОДУЛЕЙ FIREBASE (Исправленная ссылка)
 import { initializeApp } from "https://gstatic.com";
 import { getDatabase, ref, set, push, onValue, get, runTransaction } from "https://gstatic.com";
 
-// 2. ВАШИ КЛЮЧИ ПОДКЛЮЧЕНИЯ
+// 2. КЛЮЧИ ПОДКЛЮЧЕНИЯ
 const firebaseConfig = {
     apiKey: "AIzaSyDTDKf9DU0tpcRIbuhmtlSrdTMA2sanu4g",
     authDomain: "://firebaseapp.com",
@@ -477,22 +477,6 @@ let leaderBoardData = [
 ];
 
 let globalRooms = [];
-
-// 4. ГЛОБАЛЬНЫЙ ЭКСПОРТ ДЛЯ HTML (ЖЕСТКАЯ ПРИВЯЗКА К WINDOW)
-window.openProfileModal = openProfileModal;
-window.closeProfileModal = closeProfileModal;
-window.openRoomsModal = openRoomsModal;
-window.closeRoomsModal = closeRoomsModal;
-window.saveCustomName = saveCustomName;
-window.switchTab = switchTab;
-window.startSingleGame = startSingleGame;
-window.createRoomRandom = createRoomRandom;
-window.toggleCustomInputBox = toggleCustomInputBox;
-window.submitCustomRoom = submitCustomRoom;
-window.checkWord = checkWord;
-window.showRewardVideo = showRewardVideo;
-window.nextLevel = nextLevel;
-window.toggleSubmitBtn = toggleSubmitBtn;
 
 if (typeof YaGames !== 'undefined') {
     YaGames.init().then(sdk => {
@@ -750,12 +734,15 @@ function openRoomsModal() {
             </div>
         </div>
         <p style="margin:0; font-size:13px; color:#cbd5e1; line-height:1.5;"><b>Классический режим.</b> Отгадывайте бесконечные секретные слова, генерируемые системой. Прогресс сохраняется в облако.</p>
-        <button class="action-btn primary" onclick="window.startSingleGame()" style="margin-top:12px; width:100%; padding:10px;">Играть соло</button>
+        <button class="action-btn primary" id="startSingleGameInlineBtn" style="margin-top:12px; width:100%; padding:10px;">Играть соло</button>
     `;
 
+    // Привязываем события внутри динамического HTML-кода
     setTimeout(() => {
-        const btn = document.getElementById('saveNameInlineBtn');
-        if(btn) btn.onclick = window.saveCustomName;
+        const btnSave = document.getElementById('saveNameInlineBtn');
+        const btnStart = document.getElementById('startSingleGameInlineBtn');
+        if(btnSave) btnSave.onclick = saveCustomName;
+        if(btnStart) btnStart.onclick = startSingleGame;
     }, 50);
 
     switchTab(isMultiplayerMode ? 'multi' : 'single');
@@ -1018,6 +1005,23 @@ function handleWin() {
     document.getElementById('winScreen').style.display = 'block';
     document.getElementById('winMessageCount').innerText = `Вы угадали секретное слово за ${attempts} попыток!`;
     document.getElementById('winMessageStats').innerText = winMessageStatsText;
+    
+    const winBtn = document.getElementById('winActionButton');
+    if (isMultiplayerMode) {
+        winBtn.innerText = "Вернуться в лобби";
+        winBtn.onclick = function() { openRoomsModal(); };
+    } else {
+        winBtn.innerText = "Следующий уровень";
+        winBtn.onclick = function() { nextLevel(); };
+    }
+    
+    if (ysdk) {
+        ysdk.adv.showFullscreenAdv();
+        ysdk.getPlayer().then(player => {
+            player.setData({ level: currentSingleLevel, fair_score: fairScore, name: playerName });
+        }).catch(() => {});
+        ysdk.getLeaderboards().then(lb => { lb.setLeaderboardScore('fair_top', fairScore); }).catch(() => {});
+    }
 }
 
 function nextLevel() {
@@ -1039,6 +1043,27 @@ function nextLevel() {
     localStorage.setItem('ctx_active_secret', secretWord);
     initLevel();
 }
+
+// ─── ПРЯМАЯ И БЕЗОПАСНАЯ НАВЕСКА ОБРАБОТЧИКОВ НА КНОПКИ ВНУТРИ МОДУЛЯ ───
+document.getElementById('leaderboardTopBtn').addEventListener('click', openProfileModal);
+document.getElementById('closeProfileBtn').addEventListener('click', closeProfileModal);
+document.getElementById('settingsMenuBtn').addEventListener('click', openRoomsModal);
+document.getElementById('closeRoomsBtn').addEventListener('click', closeRoomsModal);
+
+document.getElementById('tabSingleBtn').addEventListener('click', () => switchTab('single'));
+document.getElementById('tabMultiBtn').addEventListener('click', () => switchTab('multi'));
+
+document.getElementById('createRoomRandomBtn').addEventListener('click', createRoomRandom);
+document.getElementById('toggleCustomInputBtn').addEventListener('click', toggleCustomInputBox);
+document.getElementById('submitCustomRoomBtn').addEventListener('click', submitCustomRoom);
+
+document.getElementById('submitBtn').addEventListener('click', checkWord);
+document.getElementById('hintActionBtn').addEventListener('click', showRewardVideo);
+document.getElementById('wordInput').addEventListener('input', toggleSubmitBtn);
+
+document.getElementById('wordInput').addEventListener('keypress', function (e) { 
+    if (e.key === 'Enter') checkWord(); 
+});
 </script>
 </body>
 </html>
