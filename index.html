@@ -745,7 +745,6 @@ function openRoomsModal() {
 
 function closeRoomsModal() { document.getElementById('roomsModal').style.display = 'none'; }
 
-// Вкладки смены режимов
 function switchTab(tabName) {
     const tabSingle = document.getElementById('tabSingleBtn');
     const tabMulti = document.getElementById('tabMultiBtn');
@@ -766,31 +765,6 @@ function switchTab(tabName) {
         multiPanel.style.display = 'flex';
         roomList.style.display = 'flex';
     }
-}
-
-function startSingleGame() {
-    isMultiplayerMode = false;
-    currentRoomName = "Одиночная игра";
-    activeRoomId = null;
-    if (activeRoomListener) {
-        db.ref(`rooms/${activeRoomId}/words`).off('value', activeRoomListener);
-        activeRoomListener = null;
-    }
-    
-    localStorage.setItem('ctx_active_mode', 'false');
-    localStorage.setItem('ctx_active_room_name', currentRoomName);
-    
-    if (currentSingleLevel <= defaultSecrets.length) {
-        secretWord = defaultSecrets[currentSingleLevel - 1];
-    } else {
-        let rndIdx = (currentSingleLevel - 1) % infiniteWordsPool.length;
-        secretWord = infiniteWordsPool[rndIdx];
-    }
-    
-    localStorage.setItem('ctx_active_secret', secretWord);
-    closeRoomsModal();
-    initLevel();
-    showMessage(`Запущен одиночный режим. Уровень ${currentSingleLevel}`, true);
 }
 
 function toggleCustomInputBox() {
@@ -835,6 +809,12 @@ function calculateRussianSimilarity(w1, w2) {
     return Math.min(0.99, score);
 }
 
+function convertScoreToRank(score, isWinner) {
+    if (isWinner) return 1;
+    let rank = Math.floor((1.0 - score) * 1200);
+    return Math.max(2, rank);
+}
+
 function checkWord() {
     hideMessage();
     const inputElement = document.getElementById('wordInput');
@@ -871,6 +851,7 @@ function checkWord() {
     }
 }
 
+// ФУНКЦИЯ ОТРИСОВКИ СЛОВ С УЧЕТОМ НИКНЕЙМА ОТПРАВИТЕЛЯ
 function renderHistory() {
     const log = document.getElementById('historyLog');
     log.innerHTML = '';
@@ -885,7 +866,12 @@ function renderHistory() {
         else { color = '#ef4444'; width = 15; }
 
         const hintTagHtml = item.isHint ? `<span class="word-hint-tag">💡 ПОДСКАЗКА</span>` : '';
-        const userTagHtml = (isMultiplayerMode && item.userName && item.userName !== playerName) ? `<span class="word-user-tag">${item.userName}</span>` : '';
+        
+        // КРАСИВАЯ ПЛАШКА С НИКОМ ИГРОКА (Если режим сетевой и имя заполнено)
+        let userTagHtml = '';
+        if (isMultiplayerMode && item.userName) {
+            userTagHtml = `<span class="word-user-tag">[${item.userName}]</span> `;
+        }
 
         row.innerHTML = `
             <div style="position: absolute; top:0; left:0; bottom:0; width: ${width}%; background: linear-gradient(90deg, ${color}, rgba(0,0,0,0)); opacity: 0.45; transition: width 0.4s ease;"></div>
