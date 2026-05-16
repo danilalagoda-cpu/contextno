@@ -25,7 +25,7 @@
             return new ReferenceCompat(this.path + '/' + childPath, this.db);
         }
         getURL() {
-            return 'https://firebasedatabase.app' + this.path + '.json';
+        return 'https://' + 'contextno-e9b35-default-rtdb' + '.europe-west1' + '.firebasedatabase' + '.app/' + this.path + '.json';
         }
         set(value) {
             return fetch(this.getURL(), { method: 'PUT', body: JSON.stringify(value) }).then(r => r.json());
