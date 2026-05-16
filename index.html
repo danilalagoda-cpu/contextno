@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Контекст: Смысловые Ассоциации</title>
-    <!-- Официальные классические библиотеки Firebase v8 (100% защита от CORS и блокировок) -->
+    <!-- Официальные классические библиотеки Firebase (Защита от CORS) -->
     <script src="https://gstatic.com"></script>
     <script src="https://gstatic.com"></script>
     <script src="https://yandex.ru"></script>
@@ -325,7 +325,6 @@
         <button class="header-icon" id="settingsMenuBtn">⚙️</button>
     </div>
 
-    <!-- Модальное окно ЛИДЕРБОРДА -->
     <div class="modal-overlay" id="profileModal">
         <div class="modal-header">
             <h2>🏆 Таблица лидеров (Честный Топ)</h2>
@@ -334,7 +333,6 @@
         <div class="room-list" id="leaderboardListContainer" style="display:flex;"></div>
     </div>
 
-    <!-- Модальное окно НАСТРОЕК -->
     <div class="modal-overlay" id="roomsModal">
         <div class="modal-header">
             <h2>⚙️ Настройки и Режимы</h2>
@@ -391,201 +389,6 @@
 
     <div class="history-list" id="historyLog"></div>
 </div>
-
-<script>
-// 1. ИНИЦИАЛИЗАЦИЯ НЕУБИВАЕМОЙ СТАНДАРТНОЙ СТРУКТУРЫ FIREBASE V8
-const firebaseConfig = {
-    apiKey: "AIzaSyDTDKf9DU0tpcRIbuhmtlSrdTMA2sanu4g",
-    authDomain: "://firebaseapp.com",
-    databaseURL: "https://firebasedatabase.app",
-    projectId: "contextno-e9b35",
-    storageBucket: "contextno-e9b35.firebasestorage.app",
-    messagingSenderId: "897841992804",
-    appId: "1:897841992804:web:43d406a3123de0c6cf3b71",
-    measurementId: "G-6HXFTB1TSE"
-};
-
-// Запуск v8
-firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
-
-// 2. ИГРОВЫЕ СЛОВАРI И ПЕРЕМЕННЫЕ
-const levelDicts = {
-    "кот": {
-        "кошка": 2, "котенок": 3, "мяукать": 4, "мурлыкать": 5, "кошачий": 6, "усы": 7, "лапы": 8, "шерсть": 9, "собака": 10,
-        "хвост": 12, "пушистый": 15, "животное": 20, "корм": 25, "мышь": 30, "домашний": 40, "молоко": 50, "питомец": 60, "ветеринар": 75, "когти": 90,
-        "рыба": 120, "диван": 180, "дом": 220, "человек": 300, "улица": 500, "шкаф": 600, "коврик": 650, "тапок": 700, "клубок": 750, "сон": 800, "охота": 900
-    },
-    "космос": {
-        "планета": 2, "ракета": 3, "звезда": 4, "галактика": 5, "астронавт": 6, "космонавт": 7, "орбита": 8, "спутник": 9, "вселенная": 10,
-        "луна": 15, "солнце": 20, "марсе": 25, "телескоп": 40, "небо": 60, "земля": 100, "наука": 200, "вакуум": 300, "тьма": 450, "фильм": 800, "комета": 850,
-        "метеорит": 900, "скафандр": 950, "гравитация": 1000, "станция": 1100
-    },
-    "автомобиль": {
-        "машина": 2, "колесо": 3, "руль": 4, "мотор": 5, "дорога": 6, "фара": 7, "бензин": 8, "водитель": 10, "гараж": 15, "скорость": 20,
-        "трасса": 30, "шины": 40, "авария": 60, "парковка": 80, "ключ": 100, "масло": 150, "педаль": 200, "тормоз": 250, "путешествие": 400
-    },
-    "пицца": {
-        "сыр": 2, "тесто": 3, "томаты": 4, "пепперони": 5, "италия": 6, "колбаса": 8, "грибы": 12, "соус": 15, "еда": 20, "кухня": 35,
-        "доставка": 50, "коробка": 70, "ресторан": 100, "повар": 140, "обед": 200, "кусок": 250, "горячая": 300, "аппетит": 450
-    },
-    "солнце": {
-        "лучи": 2, "свет": 3, "жара": 4, "небо": 5, "лето": 6, "звезда": 8, "утро": 12, "день": 15, "пляж": 25, "загар": 40,
-        "очки": 65, "восход": 90, "тепло": 120, "закат": 170, "космос": 220, "луна": 300, "погода": 400, "облако": 550
-    },
-    "океан": {
-        "море": 2, "вода": 3, "рыба": 4, "акула": 5, "волна": 6, "пляж": 8, "корабль": 12, "шторм": 18, "глубина": 25, "дно": 40,
-        "остров": 60, "песок": 90, "кит": 120, "водоросли": 180, "плавать": 240, "соль": 310, "ракушка": 450, "дайвинг": 600
-    },
-    "музыка": {
-        "песня": 2, "звук": 3, "нота": 4, "гитара": 5, "концерт": 6, "певец": 8, "наушники": 12, "радио": 18, "альбом": 25, "группа": 40,
-        "скрипка": 70, "пианино": 100, "ритм": 140, "голос": 190, "мелодия": 250, "сцена": 320, "танцы": 400, "аккорд": 550
-    },
-    "футбол": {
-        "мяч": 2, "гол": 3, "ворота": 4, "игрок": 5, "матч": 6, "судья": 8, "стадион": 12, "команда": 15, "тренер": 25, "пас": 40,
-        "штрафной": 70, "бутсы": 110, "болельщик": 160, "кубок": 220, "счет": 290, "игра": 350, "газон": 440, "пенальти": 580
-    },
-    "телефон": {
-        "смартфон": 2, "звонок": 3, "экран": 4, "номер": 5, "связь": 6, "зарядка": 8, "приложение": 12, "смс": 18, "кнопка": 25, "мобильный": 40,
-        "камера": 65, "интернет": 100, "чехол": 140, "батарея": 190, "сообщение": 260, "контакт": 340, "наушники": 420, "будильник": 560
-    },
-    "школа": {
-        "класс": 2, "урок": 3, "учитель": 4, "парта": 5, "дневник": 6, "ученик": 8, "тетрадь": 12, "звонок": 15, "учебник": 22, "оценка": 35,
-        "перемена": 55, "ручка": 80, "доска": 120, "каникулы": 180, "рюкзак": 250, "знания": 340, "экзамен": 430, "форма": 570
-    }
-};
-
-const defaultSecrets = ["кот", "космос", "автомобиль", "пицца", "солнце", "океан", "музыка", "футбол", "телефон", "школа"];
-const infiniteWordsPool = ["книга", "ручка", "город", "компьютер", "работа", "праздник", "кино", "театр", "карта", "лампа", "окно", "здание", "завод", "корабль", "метро", "поезд", "вокзал", "рынок", "магазин", "деньги", "время", "жизнь", "правда", "слово", "язык", "страна", "остров", "камень", "песок", "трава"];
-
-let secretWord = "кот";
-let currentRoomName = "Одиночная игра";
-let isMultiplayerMode = false;
-let currentSingleLevel = 1;
-let fairScore = 0; 
-let playerName = "Игрок";
-let userId = "user_" + Math.floor(Math.random() * 100000);
-
-let attempts = 0;
-let hintsUsed = 0;
-let guessedWords = [];
-let activeRoomId = null; 
-let ysdk = null;
-
-let leaderBoardData = [
-    { name: "Словесный_Маг", score: 45 }, { name: "Контекст_Нинзя", score: 38 }, { name: "Эрудит2026", score: 32 }
-];
-
-let globalRooms = [];
-
-if (typeof YaGames !== 'undefined') {
-    YaGames.init().then(sdk => {
-        ysdk = sdk;
-        ysdk.adv.showFullscreenAdv({ callbacks: { onClose: function() { loadProgress(); } } });
-    }).catch(() => { loadProgress(); });
-} else { loadProgress(); }
-
-function loadProgress() {
-    const savedRooms = localStorage.getItem('ctx_global_rooms');
-    if (savedRooms) globalRooms = JSON.parse(savedRooms);
-    
-    const savedSecret = localStorage.getItem('ctx_active_secret');
-    const savedRoomName = localStorage.getItem('ctx_active_room_name');
-    const savedMode = localStorage.getItem('ctx_active_mode');
-    const savedLvlNum = localStorage.getItem('ctx_single_level_num');
-    const savedFairScore = localStorage.getItem('ctx_fair_score');
-    const savedName = localStorage.getItem('ctx_player_name');
-    
-    if (savedSecret) secretWord = savedSecret;
-    if (savedRoomName) currentRoomName = savedRoomName;
-    if (savedMode) isMultiplayerMode = (savedMode === 'true');
-    if (savedLvlNum) currentSingleLevel = parseInt(savedLvlNum);
-    if (savedFairScore) fairScore = parseInt(savedFairScore);
-    if (savedName) playerName = savedName;
-
-    if(isMultiplayerMode) {
-        isMultiplayerMode = false;
-        currentRoomName = "Одиночная игра";
-        secretWord = "кот";
-    }
-
-    initLevel();
-    listenToGlobalRooms(); 
-}
-
-function initLevel() {
-    attempts = 0;
-    hintsUsed = 0;
-    guessedWords = [];
-    hideMessage();
-    document.getElementById('historyLog').innerHTML = '';
-    document.getElementById('winScreen').style.display = 'none';
-    document.getElementById('wordInput').disabled = false;
-    document.getElementById('wordInput').value = '';
-    document.getElementById('customInputBox').style.display = 'none';
-    document.getElementById('customWordError').style.display = 'none';
-    
-    document.getElementById('gameTitle').innerText = currentRoomName;
-    updateStatus();
-    toggleSubmitBtn();
-}
-
-function updateStatus() {
-    if (!isMultiplayerMode) {
-        document.getElementById('gameId').innerText = `Уровень: ${currentSingleLevel}`;
-    } else {
-        document.getElementById('gameId').innerText = `Лобби: #${activeRoomId}`;
-    }
-    document.getElementById('attemptsCount').innerText = `Попыток: ${attempts}`;
-    document.getElementById('hintsCount').innerText = `Подсказок использовано: ${hintsUsed}`;
-}
-
-function showMessage(text, isInfo = false) {
-    const msgBox = document.getElementById('systemMessage');
-    if(msgBox) {
-        msgBox.innerText = text;
-        msgBox.classList.toggle('info', isInfo);
-        msgBox.style.display = 'block';
-    }
-}
-
-function hideMessage() { 
-    const msgBox = document.getElementById('systemMessage');
-    if(msgBox) msgBox.style.display = 'none'; 
-}
-
-function toggleSubmitBtn() {
-    const input = document.getElementById('wordInput');
-    const btn = document.getElementById('submitBtn');
-    if(input && btn) btn.classList.toggle('active', input.value.trim().length > 0);
-}
-
-function saveCustomName() {
-    const nameInput = document.getElementById('playerNameField').value.trim();
-    if (nameInput.length > 0) {
-        playerName = nameInput;
-        localStorage.setItem('ctx_player_name', playerName);
-        closeRoomsModal();
-        showMessage(`Никнейм успешно обновлен на "${playerName}"`, true);
-    }
-}
-
-function listenToGlobalRooms() {
-    const roomsRef = db.ref('rooms');
-    roomsRef.on('value', (snapshot) => {
-        const roomsData = snapshot.val();
-        renderOnlineRooms(roomsData);
-    });
-}
-
-function renderOnlineRooms(roomsData) {
-    const container = document.getElementById('roomListContainer');
-    if (!container) return;
-    container.innerHTML = '';
-    
-    if (!roomsData) {
-        container.innerHTML = <div style="text-align:center; font-size:12px;
-
 
 <script>
 // 1. НАСТРОЙКА КЛАССИЧЕСКОГО FIREBASE (БЕЗ CORS ОШИБОК)
@@ -842,7 +645,7 @@ function joinOnlineRoom(roomId) {
 
 let activeRoomListener = null;
 function listenToActiveRoom(roomId) {
-    if (activeRoomListener) {
+    if (activeRoomListener && activeRoomId) {
         db.ref(`rooms/${activeRoomId}/words`).off('value', activeRoomListener);
     }
     
@@ -968,55 +771,11 @@ function switchTab(tabName) {
     }
 }
 
-function startSingleGame() {
-    isMultiplayerMode = false;
-    currentRoomName = "Одиночная игра";
-    activeRoomId = null;
-    if (activeRoomListener) {
-        db.ref(`rooms/${activeRoomId}/words`).off('value', activeRoomListener);
-        activeRoomListener = null;
-    }
-    
-    localStorage.setItem('ctx_active_mode', 'false');
-    localStorage.setItem('ctx_active_room_name', currentRoomName);
-    
-    if (currentSingleLevel <= defaultSecrets.length) {
-        secretWord = defaultSecrets[currentSingleLevel - 1];
-    } else {
-        let rndIdx = (currentSingleLevel - 1) % infiniteWordsPool.length;
-        secretWord = infiniteWordsPool[rndIdx];
-    }
-    
-    localStorage.setItem('ctx_active_secret', secretWord);
-    closeRoomsModal();
-    initLevel();
-    showMessage(`Запущен одиночный режим. Уровень ${currentSingleLevel}`, true);
-}
-
 function toggleCustomInputBox() {
     const box = document.getElementById('customInputBox');
     box.style.display = box.style.display === 'flex' ? 'none' : 'flex';
     document.getElementById('customWordField').value = '';
     document.getElementById('customWordError').style.display = 'none';
-}
-
-function createRoomRandom() {
-    const word = defaultSecrets[Math.floor(Math.random() * defaultSecrets.length)];
-    createRoomOnFirebase(word, "Случайное слово");
-}
-
-function submitCustomRoom() {
-    const field = document.getElementById('customWordField');
-    const err = document.getElementById('customWordError');
-    let word = field.value.trim().toLowerCase().replace(/ё/g, 'е');
-    
-    if (!/^[а-яа-зеё]+$/.test(word) || word.length < 2) {
-        err.style.display = 'block';
-        return;
-    }
-    
-    err.style.display = 'none';
-    createRoomOnFirebase(word, "Своё слово");
 }
 
 function calculateRussianSimilarity(w1, w2) {
@@ -1192,7 +951,7 @@ function handleWin() {
             localStorage.setItem('ctx_fair_score', fairScore);
             winMessageStatsText = `Итог: пройдено БЕЗ подсказок! Очки в Таблице Лидеров: ${fairScore}`;
         } else {
-            winMessageStatsText = `Итог: использовано подсказок: ${hintsUsed}. Этот уровень не пойдет в честный Топ-10.;
+            winMessageStatsText = `Итог: использовано подсказок: ${hintsUsed}. Этот уровень не пойдет в честный Топ-10.`;
         }
     } else {
         winMessageStatsText = `Поздравляем! Команда успешно расшифровала онлайн-слово.`;
