@@ -479,17 +479,56 @@ let activeRoomId = null;
 let ysdk = null;
 
 let leaderBoardData = [
-    { name: "Словесный_Маг", score: 45 }, { name: "Контекст_Нинзя", score: 38 }, { name: "Эрудит2026", score: 32 }
+    { name: "Игрок67", score: 45 }, { name: "Нинзя", score: 38 }, { name: "Димон", score: 32 }
 ];
 
 let globalRooms = [];
 
+window.ysdk = null;
+
+// Универсальная функция-предохранитель для финального старта игры
+function finalStartGameAndReady() {
+    // Проверяем, что игра ещё не была запущена (защита от двойного вызова)
+    if (window.gameStartedAndReady) return;
+    window.gameStartedAndReady = true;
+
+    console.log("[Яндекс Игры]: Снимаем экран загрузки Яндекса и запускаем игру.");
+    
+    // 1. Сначала загружаем прогресс и открываем главный экран
+    loadProgress(); 
+
+    // 2. И только СРАЗУ ПОСЛЕ ЭТОГО убираем экран загрузки Яндекса
+    if (window.ysdk && window.ysdk.features && window.ysdk.features.LoadingAPI) {
+        window.ysdk.features.LoadingAPI.ready();
+    }
+}
+
 if (typeof YaGames !== 'undefined') {
     YaGames.init().then(sdk => {
-        ysdk = sdk;
-        ysdk.adv.showFullscreenAdv({ callbacks: { onClose: function() { loadProgress(); } } });
-    }).catch(() => { loadProgress(); });
-} else { loadProgress(); }
+        window.ysdk = sdk; 
+        ysdk = sdk; // подстраховка для вашей старой переменной
+
+        // Запускаем рекламу, пока висит экран загрузки Яндекса
+        ysdk.adv.showFullscreenAdv({ 
+            callbacks: { 
+                onClose: function() { 
+                    console.log('Реклама успешно закрыта игроком.');
+                    finalStartGameAndReady(); 
+                },
+                onError: function(error) {
+                    console.log('Реклама заблокирована AdBlock или произошёл сбой:', error);
+                    // AdBlock не сможет сломать игру — предохранитель всё равно запустит её!
+                    finalStartGameAndReady();
+                }
+            } 
+        });
+    }).catch((err) => { 
+        console.error('Ошибка инициализации SDK, запускаем игру напрямую:', err);
+        finalStartGameAndReady(); 
+    });
+} else { 
+    finalStartGameAndReady(); 
+}
 
 function loadProgress() {
     const savedSecret = localStorage.getItem('ctx_active_secret');
@@ -1062,18 +1101,60 @@ function renderHistory() {
 }
 
 function showRewardVideo() {
-    hideMessage();
-    if (ysdk) {
-        ysdk.adv.showRewardedVideo({
+    if (typeof hideMessage === "function") hideMessage();
+    
+    // 1. ЗАЩИТА ОТ ReferenceError: Проверяем строго через window.ysdk
+    if (typeof window.ysdk !== 'undefined' && window.ysdk !== null) {
+        
+        window.ysdk.adv.showRewardedVideo({
             callbacks: {
-                onOpen: () => {},
-                onRewarded: () => { giveHint(); },
-                onClose: () => {},
-                onError: (e) => { showMessage('Реклама сейчас недоступна.'); }
+                onOpen: () => {
+                    console.log('Реклама открылась. Отключаем звук игры...');
+                    // КРИТИЧЕСКИ ВАЖНО: Если у вас есть звук в игре, 
+                    // отключите его здесь (например: muteGame(); или audio.volume = 0;)
+                },
+                onRewarded: () => {
+                    console.log('Реклама досмотрена до конца! Выдаём награду.');
+                    // Переменная-подтверждение, что реклама реально досмотрена
+                    window.rewardEarned = true; 
+                },
+                onClose: () => {
+                    console.log('Реклама закрыта. Возвращаем звук игры...');
+                    // Если у вас есть звук, верните его здесь (например: unmuteGame();)
+
+                    // Выдаём подсказку ТОЛЬКО если игрок РЕАЛЬНО досмотрел видео
+                    if (window.rewardEarned) {
+                        window.rewardEarned = false; // сбрасываем флаг
+                        if (typeof giveHint === "function") giveHint();
+                    } else {
+                        if (typeof showMessage === "function") showMessage('Вы не досмотрели рекламу до конца.');
+                    }
+                },
+                onError: (e) => {
+                    console.error('Ошибка показа видео-рекламы:', e);
+                    // ЗАЩИТА ОТ ХАЛЯВЫ: Если это AdBlock, пишем ошибку. 
+                    // Не выдаем подсказку просто так!
+                    if (typeof showMessage === "function") showMessage('Реклама сейчас недоступна. Отключите AdBlock.');
+                }
             }
         });
-    } else { giveHint(); }
+        
+    } else { 
+        // 3. ЗАЩИТА ДЛЯ ЛОКАЛЬНЫХ ТЕСТОВ (ДОМА):
+        // Чтобы вы могли играть дома без интернета, мы разрешаем подсказку, 
+        // ТОЛЬКО если сайт запущен на локальном хосте или с вашего компьютера.
+        // Игроки на Яндексе с AdBlock сюда физически не попадут!
+        const isLocalTest = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" || window.location.protocol === "file:";
+        
+        if (isLocalTest) {
+            console.log('[Локальный тест]: Выдаём подсказку бесплатно.');
+            if (typeof giveHint === "function") giveHint();
+        } else {
+            if (typeof showMessage === "function") showMessage('Ошибка сети. Пожалуйста, обновите страницу.');
+        }
+    }
 }
+
 
 function giveHint() {
     let bestCurrentRank = 9999;
@@ -1087,29 +1168,40 @@ function giveHint() {
     const allWords = Object.keys(semanticVectors);
     const scoredWords = [];
 
-    // 1. Просчитываем честные ранги для всех 7200 слов
+    // 1. Рассчитываем косинусное сходство для всех слов нашей базы
     allWords.forEach(w => {
         const cleanKey = w.trim().replace(/["']/g, ''); 
         const score = calculateRussianSimilarity(cleanKey, secretWord);
         scoredWords.push({ word: cleanKey, score: score });
     });
 
+    // Сортируем: лучшие слова (score ближе к 1.0) идут наверх (ранг 1, 2, 3...)
     scoredWords.sort((a, b) => b.score - a.score);
 
-    // 2. Рассчитываем целевой ранг подсказки (улучшаем позицию игрока на 30%)
-    let targetNextRank = 1500;
+    // 2. ЖЁСТКИЙ МАТЕМАТИЧЕСКИЙ РАСЧЁТ НА УЛУЧШЕНИЕ (ДВИГАЕМСЯ СТРОГО К РАНГУ 1)
+    let targetNextRank = 1500; // Стартовая подсказка, если игрок еще ничего не ввёл
 
     if (bestCurrentRank < 9999) {
-        if (bestCurrentRank > 2000) {
-            targetNextRank = 1500;
-        } else if (bestCurrentRank > 100) {
-            targetNextRank = Math.floor(bestCurrentRank * 0.70);
+        if (bestCurrentRank > 3000) {
+            targetNextRank = 2000; // Вытаскиваем из глубокого конца базы
+        } else if (bestCurrentRank > 150) {
+            // Исправлено: Считаем ранг, который гарантированно МЕНЬШЕ (лучше) текущего на 30%
+            targetNextRank = Math.floor(bestCurrentRank * 0.70); 
+            
+            // Страховка: если математика дала сбой, принудительно отнимаем 50 позиций на уменьшение
+            if (targetNextRank >= bestCurrentRank) {
+                targetNextRank = bestCurrentRank - 50;
+            }
         } else {
-            targetNextRank = Math.max(2, bestCurrentRank - 5);
+            // В горячей зелёной зоне (топ-150) двигаем игрока строго вперёд по 5 шагов
+            targetNextRank = bestCurrentRank - 5; 
         }
     }
 
-    // 3. Ищем подходящее неиспользованное слово
+    // Ранг не может быть лучше 2 (чтобы подсказка случайно не угадала секретное слово)
+    if (targetNextRank < 2) targetNextRank = 2;
+
+    // 3. Ищем в базе слово, чья позиция ближе всего к targetNextRank, которое игрок ЕЩЁ НЕ ВВОДИЛ
     let minDiff = 99999;
     let bestWordMatch = "";
     let finalCalculatedRank = 9999;
@@ -1119,7 +1211,7 @@ function giveHint() {
         const pWord = scoredWords[i].word;
         const alreadyGuessed = guessedWords.some(g => g.word === pWord);
 
-        // КРИТИЧЕСКИЙ ФИЛЬТР: Запрещаем подсказке брать технический автодобор!
+        // Блокируем технический автодобор
         const isTechnicalTrash = pWord.startsWith("тех") || pWord.startsWith("пром") || pWord.startsWith("быт") || pWord.startsWith("мед") || pWord.startsWith("био") || pWord.startsWith("тур") || pWord.startsWith("сущ");
 
         if (!alreadyGuessed && pWord !== secretWord && !isTechnicalTrash) {
@@ -1127,7 +1219,7 @@ function giveHint() {
             if (diff < minDiff) {
                 minDiff = diff;
                 bestWordMatch = pWord;
-                finalCalculatedRank = currentRank;
+                finalCalculatedRank = currentRank; // Ранг подсказки — это строго его порядковое место в топе
             }
         }
     }
@@ -1137,13 +1229,14 @@ function giveHint() {
         targetRank = finalCalculatedRank;
     }
 
+    // Защита: если слов не осталось, подсказка выдаёт само секретное слово
     if (!targetWord || (targetRank >= bestCurrentRank && bestCurrentRank <= 5)) {
         targetWord = secretWord;
         targetRank = 1;
     }
 
     // =========================================================================
-    // АВТОМАТИЧЕСКАЯ СИНХРОНИЗАЦИЯ ПОДСКАЗОК ПО ФАЙЛУ СВЯЗЕЙ
+    // ЗЕРКАЛЬНАЯ АВТО-СИНХРОНИЗАЦИЯ ПОДСКАЗОК ПО ФАЙЛУ СВЯЗЕЙ WORD_GROUPS
     // =========================================================================
     const tClean = targetWord.toLowerCase();
     const sClean = secretWord.trim().toLowerCase();
@@ -1168,7 +1261,7 @@ function giveHint() {
     }
     // =========================================================================
 
-    const hintWordObj = { word: targetWord, rank: targetRank, isHint: true, userName: playerName };
+    const hintWordObj = { word: targetWord, rank: targetRank, isHint: true, userName: "Подсказка" };
 
     if (isMultiplayerMode && activeRoomId) {
         db.ref(`rooms/${activeRoomId}/words`).push(hintWordObj);
