@@ -893,12 +893,12 @@ function calculateRussianSimilarity(w1, w2) {
 function checkWord() {
     hideMessage();
     const inputElement = document.getElementById('wordInput');
-    let word = inputElement.value.trim().toLowerCase().replace(/ё/g, 'е');
+    // Очищаем введённое слово от пробелов и лишних символов
+    let word = inputElement.value.trim().toLowerCase().replace(/ё/g, 'е').replace(/[^а-яа-зе]/g, '');
     if (!word) return;
     inputElement.value = '';
     toggleSubmitBtn();
 
-    if (!/^[а-яа-зеё]+$/.test(word)) { showMessage('Ошибка: используйте только русские буквы.'); return; }
     if (word.length < 2) { showMessage('Ошибка: слово слишком короткое.'); return; }
     if (guessedWords.some(item => item.word === word)) { showMessage('Вы уже вводили это слово.'); return; }
 
@@ -908,29 +908,32 @@ function checkWord() {
     if (isWinner) {
         rank = 1;
     } else {
-        // ЧЕСТНЫЙ ИИРАСЧЕТ РАНГА ЧЕРЕЗ СОРТИРОВКУ ВСЕЙ БАЗЫ НА 9550 СЛОВ
         const allWords = Object.keys(semanticVectors);
         const scoredWords = [];
 
-        // 1. Считаем сходство для абсолютно каждого слова из базы с секретным словом
+        // 1. Считаем сходство для каждого слова из базы с секретным словом
         allWords.forEach(w => {
-            const score = calculateRussianSimilarity(w, secretWord);
-            scoredWords.push({ word: w, score: score });
+            // Очищаем ключ слова из базы от возможных скрытых символов сжатия
+            const cleanKey = w.trim().replace(/["']/g, ''); 
+            const score = calculateRussianSimilarity(cleanKey, secretWord);
+            scoredWords.push({ word: cleanKey, score: score });
         });
 
-        // 2. Сортируем: самые похожие слова улетают наверх (в начало массива)
+        // 2. Сортируем: самые похожие слова улетают наверх
         scoredWords.sort((a, b) => b.score - a.score);
 
-        // 3. Ищем, на каком месте (индексе) оказалось слово игрока
-        const index = scoredWords.findIndex(item => item.word === word);
+        // 3. Ищем слово игрока (тоже максимально очищенное)
+        const targetWord = word.trim();
+        const index = scoredWords.findIndex(item => item.word === targetWord);
 
         if (index !== -1) {
-            rank = index + 1; // Ранг — это просто место в списке (+1, так как считаем с нуля)
+            rank = index + 1; 
         } else {
-            // Если игрок ввел редкое слово, которого нет в базе, считаем его по запасному буквенному режиму
-            let fallbackScore = calculateRussianSimilarity(word, secretWord);
-            // Даем ему далекий ранг в зависимости от плохого score
+            // Если всё-таки не нашли слово в базе, включаем запасной режим
+            let fallbackScore = calculateRussianSimilarity(targetWord, secretWord);
             rank = Math.floor(scoredWords.length - (fallbackScore * 1000));
+            // Ограничиваем, чтобы ранг не выходил за пределы базы
+            rank = Math.max(2, Math.min(scoredWords.length, rank));
         }
     }
 
