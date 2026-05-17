@@ -406,7 +406,55 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-let secretWord = "завод"; // Заменили "кот" на "завод" для идеального старта!
+const levelDicts = {
+    "кот": {
+        "кошка": 2, "котенок": 3, "мяукать": 4, "мурлыкать": 5, "кошачий": 6, "усы": 7, "лапы": 8, "шерсть": 9, "собака": 10,
+        "хвост": 12, "пушистый": 15, "животное": 20, "корм": 25, "мышь": 30, "домашний": 40, "молоко": 50, "питомец": 60, "ветеринар": 75, "когти": 90,
+        "рыба": 120, "диван": 180, "дом": 220, "человек": 300, "улица": 500, "шкаф": 600, "коврик": 650, "тапок": 700, "клубок": 750, "сон": 800, "охота": 900
+    },
+    "космос": {
+        "планета": 2, "ракета": 3, "звезда": 4, "галактика": 5, "астронавт": 6, "космонавт": 7, "орбита": 8, "спутник": 9, "вселенная": 10,
+        "луна": 15, "солнце": 20, "марсе": 25, "телескоп": 40, "небо": 60, "земля": 100, "наука": 200, "вакуум": 300, "тьма": 450, "фильм": 800, "комета": 850,
+        "метеорит": 900, "скафандр": 950, "гравитация": 1000, "станция": 1100
+    },
+    "автомобиль": {
+        "машина": 2, "колесо": 3, "руль": 4, "мотор": 5, "дорога": 6, "фара": 7, "бензин": 8, "водитель": 10, "гараж": 15, "скорость": 20,
+        "трасса": 30, "шины": 40, "авария": 60, "парковка": 80, "ключ": 100, "масло": 150, "педаль": 200, "тормоз": 250, "путешествие": 400
+    },
+    "пицца": {
+        "сыр": 2, "тесто": 3, "томаты": 4, "пепперони": 5, "италия": 6, "колбаса": 8, "грибы": 12, "соус": 15, "еда": 20, "кухня": 35,
+        "доставка": 50, "коробка": 70, "ресторан": 100, "повар": 140, "обед": 200, "кусок": 250, "горячая": 300, "аппетит": 450
+    },
+    "солнце": {
+        "лучи": 2, "свет": 3, "жара": 4, "небо": 5, "лето": 6, "звезда": 8, "утро": 12, "день": 15, "пляж": 25, "загар": 40,
+        "очки": 65, "восход": 90, "тепло": 120, "закат": 170, "космос": 220, "луна": 300, "погода": 400, "облако": 550
+    },
+    "океан": {
+        "море": 2, "вода": 3, "рыба": 4, "акула": 5, "волна": 6, "пляж": 8, "корабль": 12, "шторм": 18, "глубина": 25, "дно": 40,
+        "остров": 60, "песок": 90, "кит": 120, "водоросли": 180, "плавать": 240, "соль": 310, "ракушка": 450, "дайвинг": 600
+    },
+    "музыка": {
+        "песня": 2, "звук": 3, "нота": 4, "гитара": 5, "концерт": 6, "певец": 8, "наушники": 12, "радио": 18, "альбом": 25, "группа": 40,
+        "скрипка": 70, "пианино": 100, "ритм": 140, "голос": 190, "мелодия": 250, "сцена": 320, "танцы": 400, "аккорд": 550
+    },
+    "футбол": {
+        "мяч": 2, "гол": 3, "ворота": 4, "игрок": 5, "матч": 6, "судья": 8, "стадион": 12, "команда": 15, "тренер": 25, "пас": 40,
+        "штрафной": 70, "бутсы": 110, "болельщик": 160, "кубок": 220, "счет": 290, "игра": 350, "газон": 440, "пенальти": 580
+    },
+    "телефон": {
+        "смартфон": 2, "звонок": 3, "экран": 4, "номер": 5, "связь": 6, "зарядка": 8, "приложение": 12, "смс": 18, "кнопка": 25, "мобильный": 40,
+        "камера": 65, "интернет": 100, "чехол": 140, "батарея": 190, "сообщение": 260, "контакт": 340, "наушники": 420, "будильник": 560
+    },
+    "школа": {
+        "класс": 2, "урок": 3, "учитель": 4, "парта": 5, "дневник": 6, "ученик": 8, "тетрадь": 12, "звонок": 15, "учебник": 22, "оценка": 35,
+        "перемена": 55, "ручка": 80, "доска": 120, "каникулы": 180, "рюкзак": 250, "знания": 340, "экзамен": 430, "форма": 570
+    }
+};
+
+const defaultSecrets = ["кот", "космос", "автомобиль", "пицца", "солнце", "океан", "музыка", "футбол", "телефон", "школа"];
+const infiniteWordsPool = ["книга", "ручка", "город", "компьютер", "работа", "праздник", "кино", "театр", "карта", "лампа", "окно", "здание", "завод", "корабль", "метро", "поезд", "вокзал", "рынок", "магазин", "деньги", "время", "жизнь", "правда", "слово", "язык", "страна", "остров", "камень", "песок", "трава"];
+
+let secretWord = "кот";
 let currentRoomName = "Одиночная игра";
 let isMultiplayerMode = false;
 let currentSingleLevel = 1;
@@ -462,41 +510,17 @@ function initLevel() {
     attempts = 0;
     hintsUsed = 0;
     guessedWords = [];
-    if (typeof hideMessage === "function") hideMessage();
+    hideMessage();
+    document.getElementById('historyLog').innerHTML = '';
+    document.getElementById('winScreen').style.display = 'none';
+    document.getElementById('wordInput').disabled = false;
+    document.getElementById('wordInput').value = '';
+    document.getElementById('customInputBox').style.display = 'none';
+    document.getElementById('customWordError').style.display = 'none';
     
-    if (document.getElementById('historyLog')) document.getElementById('historyLog').innerHTML = '';
-    if (document.getElementById('winScreen')) document.getElementById('winScreen').style.display = 'none';
-    if (document.getElementById('wordInput')) {
-        document.getElementById('wordInput').disabled = false;
-        document.getElementById('wordInput').value = '';
-    }
-    if (document.getElementById('customInputBox')) document.getElementById('customInputBox').style.display = 'none';
-    if (document.getElementById('customWordError')) document.getElementById('customWordError').style.display = 'none';
-    
-    // =========================================================================
-    // АВТОНОМНЫЙ ВЫБОР СЛОВА ДЛЯ ОДИНОЧНОЙ ИГРЫ (БЕЗ ОШИБОК ИНИЦИАЛИЗАЦИИ)
-    // =========================================================================
-    if (!isMultiplayerMode) {
-        currentRoomName = "Одиночная игра";
-        
-        // 1. Считываем сохранённый уровень игрока
-        currentSingleLevel = parseInt(localStorage.getItem('ctx_single_level_num')) || 1;
-        
-        // 2. Используем эталонный список слов-уровней, который 100% есть в наших 6 базах
-        const fallbackLevelPool = ["завод", "работа", "станок", "окно", "кухня", "сметана", "творог", "сыр", "кошка", "кот", "собака", "дом", "компьютер", "телефон", "школа", "деньги", "автомобиль", "вокзал", "плита", "мотор"];
-        
-        // 3. Загадываем слово строго по номеру текущего уровня
-        let wordIdx = (currentSingleLevel - 1) % fallbackLevelPool.length;
-        secretWord = fallbackLevelPool[wordIdx].trim().toLowerCase();
-        
-        localStorage.setItem('ctx_active_secret', secretWord);
-        console.log(`[ИИ-Автоуровень]: Одиночный Уровень №${currentSingleLevel}, Секретное Слово: "${secretWord}"`);
-    }
-    // =========================================================================
-
-    if (document.getElementById('gameTitle')) document.getElementById('gameTitle').innerText = currentRoomName;
-    if (typeof updateStatus === "function") updateStatus();
-    if (typeof toggleSubmitBtn === "function") toggleSubmitBtn();
+    document.getElementById('gameTitle').innerText = currentRoomName;
+    updateStatus();
+    toggleSubmitBtn();
 }
 
 function updateStatus() {
@@ -596,13 +620,13 @@ function createRoomOnFirebase(word, typeName) {
     const roomId = Math.floor(100 + Math.random() * 900);
     const roomRef = db.ref('rooms/' + roomId);
 
-    // Бронебойная сборка объекта комнаты, защищающая от появления undefined в лобби
+    // Безопасная сборка объекта, строго страхующая от появления undefined в базе
     const roomData = {
         creatorId: userId || "unknown_id",
         creatorName: playerName || "Игрок",
         type: typeName || "Случайное слово",
         secret: word || "завод",
-        createdAt: Date.now(), // Добавили метку времени для автоматической очистки
+        createdAt: Date.now(), // Добавили метку времени для порядка
         players: {}
     };
     roomData.players[userId] = playerName || "Игрок";
@@ -794,16 +818,15 @@ function createRoomOnFirebase(word, typeName) {
     const roomId = Math.floor(100 + Math.random() * 900);
     const roomRef = db.ref('rooms/' + roomId);
 
-    // Бронебойная сборка объекта комнаты, защищающая от появления undefined в лобби
     const roomData = {
-        creatorId: userId || "unknown_id",
-        creatorName: playerName || "Игрок",
-        type: typeName || "Случайное слово",
-        secret: word || "завод",
-        createdAt: Date.now(), // Добавили метку времени для автоматической очистки
+        creatorId: userId,
+        creatorName: playerName,
+        type: typeName,
+        secret: word,
+        createdAt: Date.now(),
         players: {}
     };
-    roomData.players[userId] = playerName || "Игрок";
+    roomData.players[userId] = playerName;
 
     roomRef.set(roomData).then(() => {
         listenToActiveRoom(roomId);
@@ -811,32 +834,8 @@ function createRoomOnFirebase(word, typeName) {
 }
 
 function createRoomRandom() {
-    let chosenWord = "завод"; // Запасное слово по умолчанию
-
-    // Проверяем, загрузилась ли наша новая ИИ-карта знаний из файла word_groups.json
-    if (typeof semanticGroups !== "undefined" && Object.keys(semanticGroups).length > 0) {
-        const groups = Object.keys(semanticGroups);
-        // Выбираем случайную тему (Еда, Животные, Техника, Школа и т.д.)
-        const randomGroupName = groups[Math.floor(Math.random() * groups.length)];
-        const wordsInGroup = semanticGroups[randomGroupName];
-
-        // Фильтруем массив: исключаем из роли секретных слов общие категории (еда, животное),
-        // чтобы игрокам не приходилось угадывать слишком абстрактные понятия
-        const clearWords = wordsInGroup.filter(w => !["еда", "животное", "зверь", "здание", "знания"].includes(w));
-
-        if (clearWords.length > 0) {
-            // Выбираем 100% реальное, сочное слово из этой темы
-            chosenWord = clearWords[Math.floor(Math.random() * clearWords.length)];
-        }
-    } else {
-        console.warn("[ИИ-Предупреждение]: Файл word_groups.json ещё не загружен. Взято базовое слово.");
-    }
-
-    const finalWord = chosenWord.trim().toLowerCase();
-    console.log("[ИИ-Онлайн]: Создаётся лобби со случайным секретным словом уровня:", finalWord);
-    
-    // Передаём идеальное слово в Firebase
-    createRoomOnFirebase(finalWord, "Случайное слово");
+    const word = defaultSecrets[Math.floor(Math.random() * defaultSecrets.length)];
+    createRoomOnFirebase(word, "Случайное слово");
 }
 
 function submitCustomRoom() {
@@ -1078,32 +1077,29 @@ function giveHint() {
     const allWords = Object.keys(semanticVectors);
     const scoredWords = [];
 
-    // 1. Рассчитываем косинусное сходство для всех слов нашей базы
+    // 1. Просчитываем честные ранги для всех 7200 слов
     allWords.forEach(w => {
         const cleanKey = w.trim().replace(/["']/g, ''); 
         const score = calculateRussianSimilarity(cleanKey, secretWord);
         scoredWords.push({ word: cleanKey, score: score });
     });
 
-    // Сортируем: лучшие слова (score ближе к 1.0) идут наверх (ранг 1, 2, 3...)
     scoredWords.sort((a, b) => b.score - a.score);
 
-    // 2. РАССЧИТЫВАЕМ ШАГ ПОДСКАЗКИ СТРОГО НА УЛУЧШЕНИЕ (Уменьшаем цифру ранга!)
-    let targetNextRank = 1500; // Если игрок ещё вообще ничего близкого не угадал
+    // 2. Рассчитываем целевой ранг подсказки (улучшаем позицию игрока на 30%)
+    let targetNextRank = 1500;
 
     if (bestCurrentRank < 9999) {
         if (bestCurrentRank > 2000) {
-            targetNextRank = 1200; // Сразу вытаскиваем из глубокой красной зоны вперёд
-        } else if (bestCurrentRank > 150) {
-            // Улучшаем текущую позицию игрока на 30% (двигаемся к 1-му месту!)
-            targetNextRank = Math.floor(bestCurrentRank * 0.70); 
+            targetNextRank = 1500;
+        } else if (bestCurrentRank > 100) {
+            targetNextRank = Math.floor(bestCurrentRank * 0.70);
         } else {
-            // В зелёной зоне (топ-150) двигаем игрока поштучно по 5 шагов
-            targetNextRank = Math.max(2, bestCurrentRank - 5); 
+            targetNextRank = Math.max(2, bestCurrentRank - 5);
         }
     }
 
-    // 3. Ищем в базе слово, чья позиция ближе всего к targetNextRank, которое игрок ЕЩЁ НЕ ВВОДИЛ
+    // 3. Ищем подходящее неиспользованное слово
     let minDiff = 99999;
     let bestWordMatch = "";
     let finalCalculatedRank = 9999;
@@ -1113,7 +1109,7 @@ function giveHint() {
         const pWord = scoredWords[i].word;
         const alreadyGuessed = guessedWords.some(g => g.word === pWord);
 
-        // Блокируем технический автодобор баз данных
+        // КРИТИЧЕСКИЙ ФИЛЬТР: Запрещаем подсказке брать технический автодобор!
         const isTechnicalTrash = pWord.startsWith("тех") || pWord.startsWith("пром") || pWord.startsWith("быт") || pWord.startsWith("мед") || pWord.startsWith("био") || pWord.startsWith("тур") || pWord.startsWith("сущ");
 
         if (!alreadyGuessed && pWord !== secretWord && !isTechnicalTrash) {
@@ -1121,7 +1117,7 @@ function giveHint() {
             if (diff < minDiff) {
                 minDiff = diff;
                 bestWordMatch = pWord;
-                finalCalculatedRank = currentRank; // Ранг подсказки — это строго его порядковое место
+                finalCalculatedRank = currentRank;
             }
         }
     }
@@ -1131,14 +1127,13 @@ function giveHint() {
         targetRank = finalCalculatedRank;
     }
 
-    // Защита: если игрок застрял у самой цели, подсказка выдаёт секретное слово
     if (!targetWord || (targetRank >= bestCurrentRank && bestCurrentRank <= 5)) {
         targetWord = secretWord;
         targetRank = 1;
     }
 
     // =========================================================================
-    // ЗЕРКАЛЬНАЯ АВТО-СИНХРОНИЗАЦИЯ ПОДСКАЗОК ПО ФАЙЛУ СВЯЗЕЙ WORD_GROUPS
+    // АВТОМАТИЧЕСКАЯ СИНХРОНИЗАЦИЯ ПОДСКАЗОК ПО ФАЙЛУ СВЯЗЕЙ
     // =========================================================================
     const tClean = targetWord.toLowerCase();
     const sClean = secretWord.trim().toLowerCase();
@@ -1163,8 +1158,7 @@ function giveHint() {
     }
     // =========================================================================
 
-    // Помечаем в истории как подсказку
-    const hintWordObj = { word: targetWord, rank: targetRank, isHint: true, userName: "Подсказка" };
+    const hintWordObj = { word: targetWord, rank: targetRank, isHint: true, userName: playerName };
 
     if (isMultiplayerMode && activeRoomId) {
         db.ref(`rooms/${activeRoomId}/words`).push(hintWordObj);
@@ -1223,32 +1217,12 @@ function nextLevel() {
     currentSingleLevel++;
     localStorage.setItem('ctx_single_level_num', currentSingleLevel);
     
-    // ИИ-СБОРКА УРОВНЕЙ ИЗ КАРТЫ ЗНАНИЙ
-    let levelWordsPool = [];
-    
-    if (typeof semanticGroups !== "undefined" && Object.keys(semanticGroups).length > 0) {
-        // Собираем ВСЕ слова из всех групп карт знаний в один большой список уровней
-        Object.keys(semanticGroups).forEach(groupName => {
-            const wordsInGroup = semanticGroups[groupName];
-            wordsInGroup.forEach(w => {
-                // Исключаем абстрактные слова-категории и дубликаты
-                if (!["еда", "животное", "зверь", "здание", "знания"].includes(w) && !levelWordsPool.includes(w)) {
-                    levelWordsPool.push(w);
-                }
-            });
-        });
+    if (currentSingleLevel <= defaultSecrets.length) {
+        secretWord = defaultSecrets[currentSingleLevel - 1];
+    } else {
+        let rndIdx = (currentSingleLevel - 1) % infiniteWordsPool.length;
+        secretWord = infiniteWordsPool[rndIdx];
     }
-
-    // Если вдруг карта знаний не успела загрузиться, используем эталонный безопасный список
-    if (levelWordsPool.length === 0) {
-        levelWordsPool = ["завод", "работа", "станок", "окно", "кухня", "сметана", "творог", "сыр", "компьютер", "интернет", "школа", "ученик", "кошка", "кот", "собака", "дом", "комната", "автомобиль", "вокзал", "деньги"];
-    }
-    
-    // Выбираем слово по номеру текущего уровня (используем остаток от деления, чтобы уровни шли бесконечно по кругу)
-    let wordIdx = (currentSingleLevel - 1) % levelWordsPool.length;
-    secretWord = levelWordsPool[wordIdx].trim().toLowerCase();
-    
-    console.log(`[ИИ-Одиночная]: Старт уровня №${currentSingleLevel}. Загадано идеальное слово: ${secretWord}`);
     
     localStorage.setItem('ctx_active_secret', secretWord);
     initLevel();
