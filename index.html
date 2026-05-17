@@ -464,7 +464,6 @@ function initLevel() {
     guessedWords = [];
     if (typeof hideMessage === "function") hideMessage();
     
-    // Безопасная очистка элементов интерфейса с проверкой на их существование
     if (document.getElementById('historyLog')) document.getElementById('historyLog').innerHTML = '';
     if (document.getElementById('winScreen')) document.getElementById('winScreen').style.display = 'none';
     if (document.getElementById('wordInput')) {
@@ -475,7 +474,7 @@ function initLevel() {
     if (document.getElementById('customWordError')) document.getElementById('customWordError').style.display = 'none';
     
     // =========================================================================
-    // БРОНЕБОЙНЫЙ АВТОМАТИЧЕСКИЙ ВЫБОР СЛОВА ДЛЯ ОДИНОЧНОЙ ИГРЫ
+    // АВТОНОМНЫЙ ВЫБОР СЛОВА ДЛЯ ОДИНОЧНОЙ ИГРЫ (БЕЗ ОШИБОК ИНИЦИАЛИЗАЦИИ)
     // =========================================================================
     if (!isMultiplayerMode) {
         currentRoomName = "Одиночная игра";
@@ -483,31 +482,15 @@ function initLevel() {
         // 1. Считываем сохранённый уровень игрока
         currentSingleLevel = parseInt(localStorage.getItem('ctx_single_level_num')) || 1;
         
-        // 2. БЕЗОПАСНАЯ ИИ-СБОРКА УРОВНЕЙ ИЗ КАРТЫ ЗНАНИЙ
-        let levelWordsPool = [];
+        // 2. Используем эталонный список слов-уровней, который 100% есть в наших 6 базах
+        const fallbackLevelPool = ["завод", "работа", "станок", "окно", "кухня", "сметана", "творог", "сыр", "кошка", "кот", "собака", "дом", "компьютер", "телефон", "школа", "деньги", "автомобиль", "вокзал", "плита", "мотор"];
         
-        // КРИТИЧЕСКИЙ ФИКС: Проверяем, инициализирована ли переменная в памяти вообще
-        if (typeof semanticGroups !== "undefined" && semanticGroups !== null && Object.keys(semanticGroups).length > 0) {
-            Object.keys(semanticGroups).forEach(groupName => {
-                semanticGroups[groupName].forEach(w => {
-                    if (!["еда", "животное", "зверь", "здание", "знания"].includes(w) && !levelWordsPool.includes(w)) {
-                        levelWordsPool.push(w);
-                    }
-                });
-            });
-        }
-
-        // Аварийный эталонный список на случай, если файл базы ещё догружается в память
-        if (levelWordsPool.length === 0) {
-            levelWordsPool = ["завод", "работа", "станок", "окно", "кухня", "сметана", "творог", "сыр", "кошка", "кот", "собака", "дом", "компьютер", "телефон", "школа", "деньги"];
-        }
-
         // 3. Загадываем слово строго по номеру текущего уровня
-        let wordIdx = (currentSingleLevel - 1) % levelWordsPool.length;
-        secretWord = levelWordsPool[wordIdx].trim().toLowerCase();
+        let wordIdx = (currentSingleLevel - 1) % fallbackLevelPool.length;
+        secretWord = fallbackLevelPool[wordIdx].trim().toLowerCase();
         
         localStorage.setItem('ctx_active_secret', secretWord);
-        console.log(`[ИИ-Автоуровень]: Успешный старт! Одиночный Уровень №${currentSingleLevel}, Секретное Слово: "${secretWord}"`);
+        console.log(`[ИИ-Автоуровень]: Одиночный Уровень №${currentSingleLevel}, Секретное Слово: "${secretWord}"`);
     }
     // =========================================================================
 
