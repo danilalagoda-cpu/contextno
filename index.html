@@ -853,39 +853,42 @@ function submitCustomRoom() {
     createRoomOnFirebase(word, "Своё слово");
 }
 
-let semanticVectors = {};
+// Глобальная переменная для хранения карты знаний
+let semanticGroups = {};
 
 async function loadSemanticModel() {
     try {
-        console.log("Запуск одновременной загрузки 6-ти баз данных семантики...");
+        console.log("Запуск одновременной загрузки 6 баз векторов и файла связей...");
         
-        // Загружаем все 6 файлов параллельно на максимальной скорости
+        // Скачиваем параллельно ВСЕ 7 файлов!
         const responses = await Promise.all([
             fetch('semantic_model.json'),
             fetch('semantic_model2.json'),
             fetch('semantic_model3.json'),
             fetch('semantic_model4.json'),
             fetch('semantic_model5.json'),
-            fetch('semantic_model6.json')
+            fetch('semantic_model6.json'),
+            fetch('word_groups.json') // Наш новый автоматический файл
         ]);
 
-        // Проверяем, что все файлы скачались успешно
         for (let i = 0; i < responses.length; i++) {
-            if (!responses[i].ok) throw new Error(`Файл базы данных №${i + 1} не найден!`);
+            if (!responses[i].ok) throw new Error(`Файл №${i + 1} не найден на сервере!`);
         }
 
-        // Превращаем ответы в JSON данные
         const data1 = await responses[0].json();
         const data2 = await responses[1].json();
         const data3 = await responses[2].json();
         const data4 = await responses[3].json();
         const data5 = await responses[4].json();
         const data6 = await responses[5].json();
+        
+        // Сохраняем карту знаний в отдельную переменную
+        semanticGroups = await responses[6].json();
 
-        // СКЛЕЙКА ВЕКА: Собираем все темы в единый мощный ИИ-словарь игры!
+        // Склеиваем векторы
         semanticVectors = Object.assign({}, data1, data2, data3, data4, data5, data6);
 
-        console.log("Успех! Все 6 баз склеены. Всего реальных слов в игре: " + Object.keys(semanticVectors).length);
+        console.log("Успех! ИИ загружен. Слов в базе:", Object.keys(semanticVectors).length, "Групп связей:", Object.keys(semanticGroups).length);
     } catch (e) {
         console.error("Критическая ошибка загрузки ИИ:", e);
     }
@@ -933,7 +936,6 @@ function calculateRussianSimilarity(w1, w2) {
 function checkWord() {
     hideMessage();
     const inputElement = document.getElementById('wordInput');
-    // Очищаем введённое слово от пробелов и лишних символов
     let word = inputElement.value.trim().toLowerCase().replace(/ё/g, 'е').replace(/[^а-яа-зе]/g, '');
     if (!word) return;
     inputElement.value = '';
@@ -951,75 +953,57 @@ function checkWord() {
         const allWords = Object.keys(semanticVectors);
         const scoredWords = [];
 
-        // 1. Считаем сходство для каждого слова из базы с секретным словом
         allWords.forEach(w => {
-            // Очищаем ключ слова из базы от возможных скрытых символов сжатия
             const cleanKey = w.trim().replace(/["']/g, ''); 
             const score = calculateRussianSimilarity(cleanKey, secretWord);
             scoredWords.push({ word: cleanKey, score: score });
         });
 
-        // 2. Сортируем: самые похожие слова улетают наверх
         scoredWords.sort((a, b) => b.score - a.score);
 
-        // 3. Ищем слово игрока (тоже максимально очищенное)
         const targetWord = word.trim();
         const index = scoredWords.findIndex(item => item.word === targetWord);
 
         if (index !== -1) {
             rank = index + 1; 
         } else {
-            // Если всё-таки не нашли слово в базе, включаем запасной режим
             let fallbackScore = calculateRussianSimilarity(targetWord, secretWord);
             rank = Math.floor(scoredWords.length - (fallbackScore * 1000));
-            // Ограничиваем, чтобы ранг не выходил за пределы базы
             rank = Math.max(2, Math.min(scoredWords.length, rank));
         }
 
         // =========================================================================
-        // УМНАЯ СЕМАНТИЧЕСКАЯ КОРРЕКТИРОВКА ГЕЙМПЛЕЯ (ЗЕРКАЛЬНЫЕ ИИ-КЛАСТЕРЫ)
+        // АВТОМАТИЧЕСКАЯ ИИ-КОРРЕКТИРОВКА РАНГОВ ДЛЯ ВСЕХ СЛОВ ИЗ КАРТЫ ЗНАНИЙ
         // =========================================================================
         const inputClean = targetWord.toLowerCase();
         const secretClean = secretWord.trim().toLowerCase();
 
-        // --- КЛАСТЕР ЕДЫ И КУХНИ ---
-        if (inputClean === "холодильник" && ["сметана", "кухня", "еда", "молоко", "сыр", "творог"].includes(secretClean)) rank = Math.min(rank, 15);
-        if (secretClean === "холодильник" && ["сметана", "кухня", "еда", "молоко", "сыр", "творог"].includes(inputClean)) rank = Math.min(rank, 15);
+        // Перебираем все группы из файла word_groups.json
+        Object.keys(semanticGroups).forEach(groupName => {
+            const currentGroup = semanticGroups[groupName];
 
-        if (inputClean === "еда" && ["сметана", "творог", "сыр", "хлеб", "борщ", "кухня", "молоко"].includes(secretClean)) rank = 100; 
-        if (secretClean === "еда" && ["сметана", "творог", "сыр", "хлеб", "борщ", "кухня", "молоко"].includes(inputClean)) rank = 100;
-
-        if (secretClean === "сметана" && inputClean === "творог") rank = 2;
-        if (secretClean === "сметана" && inputClean === "сыр") rank = 4;
-        if (secretClean === "сметана" && inputClean === "молоко") rank = 6;
-        if (inputClean === "сметана" && secretClean === "творог") rank = 2;
-        if (inputClean === "сметана" && secretClean === "сыр") rank = 4;
-        if (inputClean === "сметана" && secretClean === "молоко") rank = 6;
-
-        if (["кухня", "повар", "плита"].includes(inputClean) && ["сметана", "творог", "сыр", "хлеб", "еда"].includes(secretClean)) rank = Math.min(rank, 180);
-        if (inputClean === "хлеб" && ["сметана", "творог", "сыр", "еда", "молоко"].includes(secretClean)) rank = Math.min(rank, 120);
-        if (secretClean === "кухня" && ["сметана", "еда", "хлеб", "кастрюля", "плита"].includes(inputClean)) rank = Math.min(rank, 140);
-        if (secretClean === "хлеб" && ["сметана", "творог", "сыр", "еда", "молоко"].includes(inputClean)) rank = Math.min(rank, 120);
-
-        // --- КЛАСТЕР ЖИВОТНЫХ (КОШКА / КОТ) ---
-        const animalPool = ["кошка", "собака", "кот", "котенок", "щенок", "животное", "зверь", "волк", "лиса", "заяц", "медведь", "лев", "тигр"];
-        
-        if (["животное", "зверь"].includes(inputClean) && animalPool.includes(secretClean)) rank = 100;
-        if (["животное", "зверь"].includes(secretClean) && animalPool.includes(inputClean)) rank = 100;
-
-        if (secretClean === "кошка" && inputClean === "кот") rank = 2;
-        if (secretClean === "кошка" && inputClean === "котенок") rank = 3;
-        if (secretClean === "кошка" && inputClean === "собака") rank = 10;
-        if (inputClean === "кошка" && secretClean === "кот") rank = 2;
-        if (inputClean === "кошка" && secretClean === "котенок") rank = 3;
-        if (inputClean === "кошка" && secretClean === "собака") rank = 10;
-
-        if (["кот", "котенок"].includes(secretClean) && ["кошка", "кот", "котенок"].includes(inputClean)) {
-            if (inputClean !== secretClean) rank = Math.min(rank, 5);
-        }
-
-        if (["волк", "лиса", "заяц", "медведь", "лев", "тигр"].includes(inputClean) && ["кошка", "собака", "кот"].includes(secretClean)) rank = Math.min(rank, 150);
-        if (["волк", "лиса", "заяц", "медведь", "лев", "тигр"].includes(secretClean) && ["кошка", "собака", "кот"].includes(inputClean)) rank = Math.min(rank, 150);
+            // Проверяем: если И введённое слово, И секретное слово лежат в одной группе
+            if (currentGroup.includes(inputClean) && currentGroup.includes(secretClean)) {
+                
+                // Авто-класс 1: Общие слова категории (еда, животное, здание, знания) уходят на 100 место
+                if (["еда", "животное", "зверь", "здание", "знания"].includes(inputClean)) {
+                    rank = 100;
+                } 
+                // Авто-класс 2: Сверхблизкие пары (кот к кошке, творог к сметане) принудительно тянем в топ-10
+                else if (
+                    (secretClean === "кошка" && ["кот", "котенок"].includes(inputClean)) ||
+                    (secretClean === "сметана" && ["творог", "сыр", "молоко"].includes(inputClean)) ||
+                    (secretClean === "завод" && ["работа", "станок", "деньги"].includes(inputClean))
+                ) {
+                    // Оставляем исходный близкий ранг, но страхуем, чтобы он был в топ-10
+                    rank = Math.min(rank, 10);
+                } 
+                // Авто-класс 3: Для всех остальных слов этой группы подтягиваем ранг из красной зоны в горячую
+                else {
+                    rank = Math.min(rank, 150); // Автоматический топ-150 для всей темы!
+                }
+            }
+        });
         // =========================================================================
     }
 
@@ -1036,6 +1020,7 @@ function checkWord() {
         if (isWinner) handleWin();
     }
 }
+
 
 function renderHistory() {
     const log = document.getElementById('historyLog');
@@ -1093,7 +1078,6 @@ function giveHint() {
     const allWords = Object.keys(semanticVectors);
     const scoredWords = [];
 
-    // 1. Просчитываем честные ранги для всех 7200 слов
     allWords.forEach(w => {
         const cleanKey = w.trim().replace(/["']/g, ''); 
         const score = calculateRussianSimilarity(cleanKey, secretWord);
@@ -1102,9 +1086,7 @@ function giveHint() {
 
     scoredWords.sort((a, b) => b.score - a.score);
 
-    // 2. Рассчитываем целевой ранг подсказки (улучшаем позицию игрока на 30%)
     let targetNextRank = 1500;
-
     if (bestCurrentRank < 9999) {
         if (bestCurrentRank > 2000) {
             targetNextRank = 1500;
@@ -1115,7 +1097,6 @@ function giveHint() {
         }
     }
 
-    // 3. Ищем подходящее неиспользованное слово
     let minDiff = 99999;
     let bestWordMatch = "";
     let finalCalculatedRank = 9999;
@@ -1146,29 +1127,27 @@ function giveHint() {
     }
 
     // =========================================================================
-    // СИНХРОННОЕ ПРИМЕНЕНИЕ СЕМАНТИЧЕСКИХ КОРРЕКТИРОВОК ДЛЯ ПОДСКАЗОК
+    // АВТОМАТИЧЕСКАЯ СИНХРОНИЗАЦИЯ ПОДСКАЗОК ПО ФАЙЛУ СВЯЗЕЙ
     // =========================================================================
     const tClean = targetWord.toLowerCase();
     const sClean = secretWord.trim().toLowerCase();
 
-    // --- Кластер еды ---
-    if (tClean === "еда" && ["сметана", "творог", "сыр", "хлеб", "борщ", "кухня", "молоко"].includes(sClean)) targetRank = 100;
-    if (sClean === "сметана" && tClean === "творог") targetRank = 2;
-    if (sClean === "сметана" && tClean === "сыр") targetRank = 4;
-    if (sClean === "сметана" && tClean === "молоко") targetRank = 6;
-    if (tClean === "хлеб" && ["сметана", "творог", "сыр", "еда", "молоко"].includes(sClean)) targetRank = Math.min(targetRank, 120);
-    if (["кухня", "повар", "плита"].includes(tClean) && ["сметана", "творог", "сыр", "хлеб", "еда"].includes(sClean)) targetRank = Math.min(targetRank, 180);
-
-    // --- Кластер животных ---
-    const aPool = ["кошка", "собака", "кот", "котенок", "щенок", "животное", "зверь", "волк", "лиса", "заяц", "медведь", "лев", "тигр"];
-    if (["животное", "зверь"].includes(tClean) && aPool.includes(sClean)) targetRank = 100;
-    if (sClean === "кошка" && tClean === "кот") targetRank = 2;
-    if (sClean === "кошка" && tClean === "котенок") targetRank = 3;
-    if (sClean === "кошка" && tClean === "собака") targetRank = 10;
-    if (["кот", "котенок"].includes(sClean) && ["кошка", "кот", "котенок"].includes(tClean)) {
-        if (tClean !== sClean) targetRank = Math.min(targetRank, 5);
-    }
-    if (["волк", "лиса", "заяц", "медведь", "лев", "тигр"].includes(tClean) && ["кошка", "собака", "кот"].includes(sClean)) targetRank = Math.min(targetRank, 150);
+    Object.keys(semanticGroups).forEach(groupName => {
+        const currentGroup = semanticGroups[groupName];
+        if (currentGroup.includes(tClean) && currentGroup.includes(sClean)) {
+            if (["еда", "животное", "зверь", "здание", "знания"].includes(tClean)) {
+                targetRank = 100;
+            } else if (
+                (sClean === "кошка" && ["кот", "котенок"].includes(tClean)) ||
+                (sClean === "сметана" && ["творог", "сыр", "молоко"].includes(tClean)) ||
+                (sClean === "завод" && ["работа", "станок", "деньги"].includes(tClean))
+            ) {
+                targetRank = Math.min(targetRank, 10);
+            } else {
+                targetRank = Math.min(targetRank, 150);
+            }
+        }
+    });
     // =========================================================================
 
     const hintWordObj = { word: targetWord, rank: targetRank, isHint: true, userName: playerName };
