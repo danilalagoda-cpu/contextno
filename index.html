@@ -839,30 +839,37 @@ function submitCustomRoom() {
 
 let semanticVectors = {};
 
-// Финальная функция автоматической загрузки и склейки 3-х файлов базы данных
 async function loadSemanticModel() {
     try {
-        console.log("Запуск одновременной загрузки 3-х баз данных...");
+        console.log("Запуск одновременной загрузки 6-ти баз данных семантики...");
         
-        // Запускаем 3 скачивания параллельно, чтобы игра грузилась мгновенно!
-        const [res1, res2, res3] = await Promise.all([
+        // Загружаем все 6 файлов параллельно на максимальной скорости
+        const responses = await Promise.all([
             fetch('semantic_model.json'),
             fetch('semantic_model2.json'),
-            fetch('semantic_model3.json')
+            fetch('semantic_model3.json'),
+            fetch('semantic_model4.json'),
+            fetch('semantic_model5.json'),
+            fetch('semantic_model6.json')
         ]);
 
-        if (!res1.ok || !res2.ok || !res3.ok) {
-            throw new Error("Один из 3-х файлов базы данных семантики не найден на сервере!");
+        // Проверяем, что все файлы скачались успешно
+        for (let i = 0; i < responses.length; i++) {
+            if (!responses[i].ok) throw new Error(`Файл базы данных №${i + 1} не найден!`);
         }
 
-        const data1 = await res1.json();
-        const data2 = await res2.json();
-        const data3 = await res3.json();
+        // Превращаем ответы в JSON данные
+        const data1 = await responses[0].json();
+        const data2 = await responses[1].json();
+        const data3 = await responses[2].json();
+        const data4 = await responses[3].json();
+        const data5 = await responses[4].json();
+        const data6 = await responses[5].json();
 
-        // Магия склейки: объединяем 3 независимые базы в один гигантский ИИ-словарь!
-        semanticVectors = Object.assign({}, data1, data2, data3);
+        // СКЛЕЙКА ВЕКА: Собираем все темы в единый мощный ИИ-словарь игры!
+        semanticVectors = Object.assign({}, data1, data2, data3, data4, data5, data6);
 
-        console.log("Успех! Локальный 300-мерный ИИ загружен и склеен. Всего реальных слов в игре:", Object.keys(semanticVectors).length);
+        console.log("Успех! Все 6 баз склеены. Всего реальных слов в игре: " + Object.keys(semanticVectors).length);
     } catch (e) {
         console.error("Критическая ошибка загрузки ИИ:", e);
     }
