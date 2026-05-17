@@ -470,6 +470,42 @@ function initLevel() {
     document.getElementById('customInputBox').style.display = 'none';
     document.getElementById('customWordError').style.display = 'none';
     
+    // =========================================================================
+    // АВТОМАТИЧЕСКИЙ ВЫБОР СЛОВА ДЛЯ ОДИНОЧНОЙ ИГРЫ (ФИКС КНОПКИ СОЛО)
+    // =========================================================================
+    if (!isMultiplayerMode) {
+        currentRoomName = "Одиночная игра";
+        
+        // 1. Читаем из памяти браузера текущий уровень игрока (если нет — ставим 1-й)
+        currentSingleLevel = parseInt(localStorage.getItem('ctx_single_level_num')) || 1;
+        
+        // 2. Собираем чистый пул уровней из нашей ИИ-карты знаний word_groups.json
+        let levelWordsPool = [];
+        if (typeof semanticGroups !== "undefined" && Object.keys(semanticGroups).length > 0) {
+            Object.keys(semanticGroups).forEach(groupName => {
+                semanticGroups[groupName].forEach(w => {
+                    // Исключаем абстрактные категории и дубликаты
+                    if (!["еда", "животное", "зверь", "здание", "знания"].includes(w) && !levelWordsPool.includes(w)) {
+                        levelWordsPool.push(w);
+                    }
+                });
+            });
+        }
+
+        // Аварийный список на случай, если файл word_groups ещё догружается в память
+        if (levelWordsPool.length === 0) {
+            levelWordsPool = ["завод", "работа", "станок", "окно", "кухня", "сметана", "творог", "сыр"];
+        }
+
+        // 3. Загадываем слово строго по номеру текущего уровня (бесконечный цикл по кругу)
+        let wordIdx = (currentSingleLevel - 1) % levelWordsPool.length;
+        secretWord = levelWordsPool[wordIdx].trim().toLowerCase();
+        
+        localStorage.setItem('ctx_active_secret', secretWord);
+        console.log(`[ИИ-Автоуровень]: Успешный старт! Одиночный Уровень №${currentSingleLevel}, Секретное Слово: "${secretWord}"`);
+    }
+    // =========================================================================
+
     document.getElementById('gameTitle').innerText = currentRoomName;
     updateStatus();
     toggleSubmitBtn();
@@ -1054,29 +1090,32 @@ function giveHint() {
     const allWords = Object.keys(semanticVectors);
     const scoredWords = [];
 
-    // 1. Просчитываем честные ранги для всех 7200 слов
+    // 1. Рассчитываем косинусное сходство для всех слов нашей базы
     allWords.forEach(w => {
         const cleanKey = w.trim().replace(/["']/g, ''); 
         const score = calculateRussianSimilarity(cleanKey, secretWord);
         scoredWords.push({ word: cleanKey, score: score });
     });
 
+    // Сортируем: лучшие слова (score ближе к 1.0) идут наверх (ранг 1, 2, 3...)
     scoredWords.sort((a, b) => b.score - a.score);
 
-    // 2. Рассчитываем целевой ранг подсказки (улучшаем позицию игрока на 30%)
-    let targetNextRank = 1500;
+    // 2. РАССЧИТЫВАЕМ ШАГ ПОДСКАЗКИ СТРОГО НА УЛУЧШЕНИЕ (Уменьшаем цифру ранга!)
+    let targetNextRank = 1500; // Если игрок ещё вообще ничего близкого не угадал
 
     if (bestCurrentRank < 9999) {
         if (bestCurrentRank > 2000) {
-            targetNextRank = 1500;
-        } else if (bestCurrentRank > 100) {
-            targetNextRank = Math.floor(bestCurrentRank * 0.70);
+            targetNextRank = 1200; // Сразу вытаскиваем из глубокой красной зоны вперёд
+        } else if (bestCurrentRank > 150) {
+            // Улучшаем текущую позицию игрока на 30% (двигаемся к 1-му месту!)
+            targetNextRank = Math.floor(bestCurrentRank * 0.70); 
         } else {
-            targetNextRank = Math.max(2, bestCurrentRank - 5);
+            // В зелёной зоне (топ-150) двигаем игрока поштучно по 5 шагов
+            targetNextRank = Math.max(2, bestCurrentRank - 5); 
         }
     }
 
-    // 3. Ищем подходящее неиспользованное слово
+    // 3. Ищем в базе слово, чья позиция ближе всего к targetNextRank, которое игрок ЕЩЁ НЕ ВВОДИЛ
     let minDiff = 99999;
     let bestWordMatch = "";
     let finalCalculatedRank = 9999;
@@ -1086,7 +1125,7 @@ function giveHint() {
         const pWord = scoredWords[i].word;
         const alreadyGuessed = guessedWords.some(g => g.word === pWord);
 
-        // КРИТИЧЕСКИЙ ФИЛЬТР: Запрещаем подсказке брать технический автодобор!
+        // Блокируем технический автодобор баз данных
         const isTechnicalTrash = pWord.startsWith("тех") || pWord.startsWith("пром") || pWord.startsWith("быт") || pWord.startsWith("мед") || pWord.startsWith("био") || pWord.startsWith("тур") || pWord.startsWith("сущ");
 
         if (!alreadyGuessed && pWord !== secretWord && !isTechnicalTrash) {
@@ -1094,7 +1133,7 @@ function giveHint() {
             if (diff < minDiff) {
                 minDiff = diff;
                 bestWordMatch = pWord;
-                finalCalculatedRank = currentRank;
+                finalCalculatedRank = currentRank; // Ранг подсказки — это строго его порядковое место
             }
         }
     }
@@ -1104,13 +1143,14 @@ function giveHint() {
         targetRank = finalCalculatedRank;
     }
 
+    // Защита: если игрок застрял у самой цели, подсказка выдаёт секретное слово
     if (!targetWord || (targetRank >= bestCurrentRank && bestCurrentRank <= 5)) {
         targetWord = secretWord;
         targetRank = 1;
     }
 
     // =========================================================================
-    // АВТОМАТИЧЕСКАЯ СИНХРОНИЗАЦИЯ ПОДСКАЗОК ПО ФАЙЛУ СВЯЗЕЙ
+    // ЗЕРКАЛЬНАЯ АВТО-СИНХРОНИЗАЦИЯ ПОДСКАЗОК ПО ФАЙЛУ СВЯЗЕЙ WORD_GROUPS
     // =========================================================================
     const tClean = targetWord.toLowerCase();
     const sClean = secretWord.trim().toLowerCase();
@@ -1135,7 +1175,8 @@ function giveHint() {
     }
     // =========================================================================
 
-    const hintWordObj = { word: targetWord, rank: targetRank, isHint: true, userName: playerName };
+    // Помечаем в истории как подсказку
+    const hintWordObj = { word: targetWord, rank: targetRank, isHint: true, userName: "Подсказка" };
 
     if (isMultiplayerMode && activeRoomId) {
         db.ref(`rooms/${activeRoomId}/words`).push(hintWordObj);
