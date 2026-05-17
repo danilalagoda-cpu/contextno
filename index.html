@@ -839,13 +839,30 @@ function submitCustomRoom() {
 
 let semanticVectors = {};
 
-// Функция автоматической загрузки вашего созданного JSON-файла
+// Финальная функция автоматической загрузки и склейки 3-х файлов базы данных
 async function loadSemanticModel() {
     try {
-        const response = await fetch('semantic_model.json');
-        if (!response.ok) throw new Error("Файл semantic_model.json не найден в папке!");
-        semanticVectors = await response.json();
-        console.log("Успех! Локальный 300-мерный ИИ загружен. Слов в базе:", Object.keys(semanticVectors).length);
+        console.log("Запуск одновременной загрузки 3-х баз данных...");
+        
+        // Запускаем 3 скачивания параллельно, чтобы игра грузилась мгновенно!
+        const [res1, res2, res3] = await Promise.all([
+            fetch('semantic_model.json'),
+            fetch('semantic_model2.json'),
+            fetch('semantic_model3.json')
+        ]);
+
+        if (!res1.ok || !res2.ok || !res3.ok) {
+            throw new Error("Один из 3-х файлов базы данных семантики не найден на сервере!");
+        }
+
+        const data1 = await res1.json();
+        const data2 = await res2.json();
+        const data3 = await res3.json();
+
+        // Магия склейки: объединяем 3 независимые базы в один гигантский ИИ-словарь!
+        semanticVectors = Object.assign({}, data1, data2, data3);
+
+        console.log("Успех! Локальный 300-мерный ИИ загружен и склеен. Всего реальных слов в игре:", Object.keys(semanticVectors).length);
     } catch (e) {
         console.error("Критическая ошибка загрузки ИИ:", e);
     }
