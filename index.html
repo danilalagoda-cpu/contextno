@@ -621,13 +621,13 @@ function createRoomOnFirebase(word, typeName) {
     const roomId = Math.floor(100 + Math.random() * 900);
     const roomRef = db.ref('rooms/' + roomId);
 
-    // Безопасная сборка объекта, строго страхующая от появления undefined в базе
+    // Бронебойная сборка объекта комнаты, защищающая от появления undefined в лобби
     const roomData = {
         creatorId: userId || "unknown_id",
         creatorName: playerName || "Игрок",
         type: typeName || "Случайное слово",
         secret: word || "завод",
-        createdAt: Date.now(), // Добавили метку времени для порядка
+        createdAt: Date.now(), // Добавили метку времени для автоматической очистки
         players: {}
     };
     roomData.players[userId] = playerName || "Игрок";
@@ -819,15 +819,16 @@ function createRoomOnFirebase(word, typeName) {
     const roomId = Math.floor(100 + Math.random() * 900);
     const roomRef = db.ref('rooms/' + roomId);
 
+    // Бронебойная сборка объекта комнаты, защищающая от появления undefined в лобби
     const roomData = {
-        creatorId: userId,
-        creatorName: playerName,
-        type: typeName,
-        secret: word,
-        createdAt: Date.now(),
+        creatorId: userId || "unknown_id",
+        creatorName: playerName || "Игрок",
+        type: typeName || "Случайное слово",
+        secret: word || "завод",
+        createdAt: Date.now(), // Добавили метку времени для автоматической очистки
         players: {}
     };
-    roomData.players[userId] = playerName;
+    roomData.players[userId] = playerName || "Игрок";
 
     roomRef.set(roomData).then(() => {
         listenToActiveRoom(roomId);
@@ -835,8 +836,32 @@ function createRoomOnFirebase(word, typeName) {
 }
 
 function createRoomRandom() {
-    const word = defaultSecrets[Math.floor(Math.random() * defaultSecrets.length)];
-    createRoomOnFirebase(word, "Случайное слово");
+    let chosenWord = "завод"; // Запасное слово по умолчанию
+
+    // Проверяем, загрузилась ли наша новая ИИ-карта знаний из файла word_groups.json
+    if (typeof semanticGroups !== "undefined" && Object.keys(semanticGroups).length > 0) {
+        const groups = Object.keys(semanticGroups);
+        // Выбираем случайную тему (Еда, Животные, Техника, Школа и т.д.)
+        const randomGroupName = groups[Math.floor(Math.random() * groups.length)];
+        const wordsInGroup = semanticGroups[randomGroupName];
+
+        // Фильтруем массив: исключаем из роли секретных слов общие категории (еда, животное),
+        // чтобы игрокам не приходилось угадывать слишком абстрактные понятия
+        const clearWords = wordsInGroup.filter(w => !["еда", "животное", "зверь", "здание", "знания"].includes(w));
+
+        if (clearWords.length > 0) {
+            // Выбираем 100% реальное, сочное слово из этой темы
+            chosenWord = clearWords[Math.floor(Math.random() * clearWords.length)];
+        }
+    } else {
+        console.warn("[ИИ-Предупреждение]: Файл word_groups.json ещё не загружен. Взято базовое слово.");
+    }
+
+    const finalWord = chosenWord.trim().toLowerCase();
+    console.log("[ИИ-Онлайн]: Создаётся лобби со случайным секретным словом уровня:", finalWord);
+    
+    // Передаём идеальное слово в Firebase
+    createRoomOnFirebase(finalWord, "Случайное слово");
 }
 
 function submitCustomRoom() {
@@ -1078,6 +1103,7 @@ function giveHint() {
     const allWords = Object.keys(semanticVectors);
     const scoredWords = [];
 
+    // 1. Просчитываем честные ранги для всех 7200 слов
     allWords.forEach(w => {
         const cleanKey = w.trim().replace(/["']/g, ''); 
         const score = calculateRussianSimilarity(cleanKey, secretWord);
@@ -1086,7 +1112,9 @@ function giveHint() {
 
     scoredWords.sort((a, b) => b.score - a.score);
 
+    // 2. Рассчитываем целевой ранг подсказки (улучшаем позицию игрока на 30%)
     let targetNextRank = 1500;
+
     if (bestCurrentRank < 9999) {
         if (bestCurrentRank > 2000) {
             targetNextRank = 1500;
@@ -1097,6 +1125,7 @@ function giveHint() {
         }
     }
 
+    // 3. Ищем подходящее неиспользованное слово
     let minDiff = 99999;
     let bestWordMatch = "";
     let finalCalculatedRank = 9999;
@@ -1106,7 +1135,10 @@ function giveHint() {
         const pWord = scoredWords[i].word;
         const alreadyGuessed = guessedWords.some(g => g.word === pWord);
 
-        if (!alreadyGuessed && pWord !== secretWord) {
+        // КРИТИЧЕСКИЙ ФИЛЬТР: Запрещаем подсказке брать технический автодобор!
+        const isTechnicalTrash = pWord.startsWith("тех") || pWord.startsWith("пром") || pWord.startsWith("быт") || pWord.startsWith("мед") || pWord.startsWith("био") || pWord.startsWith("тур") || pWord.startsWith("сущ");
+
+        if (!alreadyGuessed && pWord !== secretWord && !isTechnicalTrash) {
             let diff = Math.abs(currentRank - targetNextRank);
             if (diff < minDiff) {
                 minDiff = diff;
@@ -1132,22 +1164,24 @@ function giveHint() {
     const tClean = targetWord.toLowerCase();
     const sClean = secretWord.trim().toLowerCase();
 
-    Object.keys(semanticGroups).forEach(groupName => {
-        const currentGroup = semanticGroups[groupName];
-        if (currentGroup.includes(tClean) && currentGroup.includes(sClean)) {
-            if (["еда", "животное", "зверь", "здание", "знания"].includes(tClean)) {
-                targetRank = 100;
-            } else if (
-                (sClean === "кошка" && ["кот", "котенок"].includes(tClean)) ||
-                (sClean === "сметана" && ["творог", "сыр", "молоко"].includes(tClean)) ||
-                (sClean === "завод" && ["работа", "станок", "деньги"].includes(tClean))
-            ) {
-                targetRank = Math.min(targetRank, 10);
-            } else {
-                targetRank = Math.min(targetRank, 150);
+    if (typeof semanticGroups !== "undefined") {
+        Object.keys(semanticGroups).forEach(groupName => {
+            const currentGroup = semanticGroups[groupName];
+            if (currentGroup.includes(tClean) && currentGroup.includes(sClean)) {
+                if (["еда", "животное", "зверь", "здание", "знания"].includes(tClean)) {
+                    targetRank = 100;
+                } else if (
+                    (sClean === "кошка" && ["кот", "котенок"].includes(tClean)) ||
+                    (sClean === "сметана" && ["творог", "сыр", "молоко"].includes(tClean)) ||
+                    (sClean === "завод" && ["работа", "станок", "деньги"].includes(tClean))
+                ) {
+                    targetRank = Math.min(targetRank, 10);
+                } else {
+                    targetRank = Math.min(targetRank, 150);
+                }
             }
-        }
-    });
+        });
+    }
     // =========================================================================
 
     const hintWordObj = { word: targetWord, rank: targetRank, isHint: true, userName: playerName };
