@@ -584,7 +584,21 @@ function renderOnlineRooms(roomsData) {
 
     Object.keys(roomsData).forEach(roomId => {
         const room = roomsData[roomId];
+
+        // КРИТИЧЕСКАЯ ЗАЩИТА ЛОББИ: Если в комнате нет секретного слова или имени создателя — стираем её!
+        if (!room || !room.secret || !room.creatorName || room.creatorName === "undefined") {
+            console.log(`[ИИ-Защита лобби]: Обнаружена сломанная комната #${roomId}. Удаление из Firebase...`);
+            db.ref('rooms/' + roomId).remove(); // Полностью стираем мусор из базы данных
+            return; // Пропускаем её отрисовку, игроки её больше не увидят
+        }
+
         let playersCount = room.players ? Object.keys(room.players).length : 0;
+
+        // Если все игроки вышли из комнаты (0 игроков), она тоже больше не нужна
+        if (playersCount === 0) {
+            db.ref('rooms/' + roomId).remove();
+            return;
+        }
 
         const item = document.createElement('div');
         item.className = 'room-item';
@@ -602,19 +616,21 @@ function renderOnlineRooms(roomsData) {
         container.appendChild(item);
     });
 }
-
+    
 function createRoomOnFirebase(word, typeName) {
     const roomId = Math.floor(100 + Math.random() * 900);
     const roomRef = db.ref('rooms/' + roomId);
 
+    // Безопасная сборка объекта, строго страхующая от появления undefined в базе
     const roomData = {
-        creatorId: userId,
-        creatorName: playerName,
-        type: typeName,
-        secret: word,
+        creatorId: userId || "unknown_id",
+        creatorName: playerName || "Игрок",
+        type: typeName || "Случайное слово",
+        secret: word || "завод",
+        createdAt: Date.now(), // Добавили метку времени для порядка
         players: {}
     };
-    roomData.players[userId] = playerName;
+    roomData.players[userId] = playerName || "Игрок";
 
     roomRef.set(roomData).then(() => {
         listenToActiveRoom(roomId);
