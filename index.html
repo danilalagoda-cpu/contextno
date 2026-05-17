@@ -959,6 +959,53 @@ function checkWord() {
             // Ограничиваем, чтобы ранг не выходил за пределы базы
             rank = Math.max(2, Math.min(scoredWords.length, rank));
         }
+
+        // =========================================================================
+        // УМНАЯ СЕМАНТИЧЕСКАЯ КОРРЕКТИРОВКА ГЕЙМПЛЕЯ (ЗЕРКАЛЬНЫЕ ИИ-КЛАСТЕРЫ)
+        // =========================================================================
+        const inputClean = targetWord.toLowerCase();
+        const secretClean = secretWord.trim().toLowerCase();
+
+        // 1. Принудительно связываем ХОЛОДИЛЬНИК с едой и кухней
+        if (inputClean === "холодильник" && ["сметана", "кухня", "еда", "молоко", "сыр", "творог"].includes(secretClean)) {
+            rank = Math.min(rank, 15);
+        }
+        if (secretClean === "холодильник" && ["сметана", "кухня", "еда", "молоко", "сыр", "творог"].includes(inputClean)) {
+            rank = Math.min(rank, 15);
+        }
+
+        // 2. Корректируем общее слово "ЕДА" — уводим на ~100 место, чтобы дать игроку простор для перечисления
+        if (inputClean === "еда" && ["сметана", "творог", "сыр", "хлеб", "борщ", "кухня", "молоко"].includes(secretClean)) {
+            rank = 100; 
+        }
+        if (secretClean === "еда" && ["сметана", "творог", "сыр", "хлеб", "борщ", "кухня", "молоко"].includes(inputClean)) {
+            rank = 100;
+        }
+
+        // 3. Выстраиваем ювелирный топ-ассоциаций для СМЕТАНЫ (творог на 2 место)
+        if (secretClean === "сметана" && inputClean === "творог") rank = 2;
+        if (secretClean === "сметана" && inputClean === "сыр") rank = 4;
+        if (secretClean === "сметана" && inputClean === "молоко") rank = 6;
+
+        if (inputClean === "сметана" && secretClean === "творог") rank = 2;
+        if (inputClean === "сметана" && secretClean === "сыр") rank = 4;
+        if (inputClean === "сметана" && secretClean === "молоко") rank = 6;
+
+        // 4. Спасаем улетевшую КУХНЮ и ХЛЕБ (вытаскиваем их из ранка 7000 обратно в горячую зону)
+        if (["кухня", "повар", "плита"].includes(inputClean) && ["сметана", "творог", "сыр", "хлеб", "еда"].includes(secretClean)) {
+            rank = Math.min(rank, 180);
+        }
+        if (inputClean === "хлеб" && ["сметана", "творог", "сыр", "еда", "молоко"].includes(secretClean)) {
+            rank = Math.min(rank, 120);
+        }
+
+        if (secretClean === "кухня" && ["сметана", "еда", "хлеб", "кастрюля", "плита"].includes(inputClean)) {
+            rank = Math.min(rank, 140);
+        }
+        if (secretClean === "хлеб" && ["сметана", "творог", "сыр", "еда", "молоко"].includes(inputClean)) {
+            rank = Math.min(rank, 120);
+        }
+        // =========================================================================
     }
 
     const newWordObj = { word: word, rank: rank, isHint: false, userName: playerName };
