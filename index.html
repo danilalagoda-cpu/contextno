@@ -890,24 +890,6 @@ function calculateRussianSimilarity(w1, w2) {
     return Math.min(0.5, matches / Math.max(g1.length, g2.length));
 }
 
-// ПРАВИЛЬНЫЙ ПЕРЕВОД КОЭФФИЦИЕНТА ИИ В РАНГИ (Оригинальная математика)
-function convertScoreToRank(score, isWinner) {
-    if (isWinner) return 1;
-    
-    // Если сходство высокое (больше 0.75), даем близкие зеленые ранги
-    if (score > 0.75) {
-        let rank = Math.floor((1.0 - score) * 300) + 2;
-        return Math.max(2, rank);
-    }
-    // Среднее сходство (желтая зона)
-    if (score > 0.5) {
-        return Math.floor((1.0 - score) * 1000);
-    }
-    // Далекие слова (красная зона)
-    let badRank = Math.floor((1.0 - score) * 1500);
-    return Math.min(1499, badRank);
-}
-
 function checkWord() {
     hideMessage();
     const inputElement = document.getElementById('wordInput');
@@ -923,39 +905,32 @@ function checkWord() {
     let isWinner = (word === secretWord);
     let rank = 9999;
 
-    // СВЕРХТОЧНЫЕ СМЫСЛОВЫЕ СЛОВАРI ДЛЯ ПРОВЕРКИ (Идеальный фикс рангов)
-    const exactSemanticDicts = {
-        "школа": {
-            "класс": 2, "урок": 3, "учитель": 4, "ученик": 5, "парта": 6, "дневник": 7, "тетрадь": 8, "учебник": 9, "учеба": 10,
-            "оценка": 12, "ручка": 15, "карандаш": 20, "знания": 25, "экзамен": 30, "директор": 35, "доска": 40, "мел": 50, "ластик": 60,
-            "университет": 100, "институт": 120, "колледж": 150, "детсад": 200, "книга": 250, "образование": 300, "наука": 400
-        },
-        "кухня": {
-            "повар": 2, "плита": 3, "холодильник": 4, "ложка": 5, "вилка": 6, "нож": 7, "тарелка": 8, "кастрюля": 9, "сковорода": 10,
-            "чайник": 12, "чашка": 15, "стакан": 20, "еда": 25, "обед": 30, "ужин": 35, "завтрак": 40, "духовка": 50, "раковина": 60,
-            "комната": 150, "квартира": 180, "дом": 200, "стол": 220, "стул": 250, "шкаф": 300, "дверь": 400, "окно": 450
-        },
-        "автомобиль": {
-            "машина": 2, "колесо": 3, "руль": 4, "мотор": 5, "дорога": 6, "фара": 7, "бензин": 8, "водитель": 10, "гараж": 15, "скорость": 20,
-            "трасса": 30, "шины": 40, "авария": 60, "парковка": 80, "транспорт": 100, "автобус": 150, "трамвай": 180, "поезд": 200, "вокзал": 250
-        }
-    };
-
     if (isWinner) {
         rank = 1;
-    } else if (exactSemanticDicts[secretWord] && exactSemanticDicts[secretWord][word]) {
-        // Если слово есть в нашем идеальном смысловом словаре — берем ранг оттуда!
-        rank = exactSemanticDicts[secretWord][word];
-    } else if (levelDicts[secretWord] && levelDicts[secretWord][word]) {
-        rank = levelDicts[secretWord][word];
     } else {
-        // Если слова нет в точных словарях — включаем косинусное сходство ИИ
-        let score = calculateRussianSimilarity(word, secretWord);
-        rank = convertScoreToRank(score, isWinner);
-        
-        // Корректировка: защищаем логичные слова темы от случайного падения в красную зону
-        if (secretWord === "школа" && ["учеба", "образование", "пенал", "институт"].includes(word)) {
-            rank = 85;
+        // ЧЕСТНЫЙ ИИРАСЧЕТ РАНГА ЧЕРЕЗ СОРТИРОВКУ ВСЕЙ БАЗЫ НА 9550 СЛОВ
+        const allWords = Object.keys(semanticVectors);
+        const scoredWords = [];
+
+        // 1. Считаем сходство для абсолютно каждого слова из базы с секретным словом
+        allWords.forEach(w => {
+            const score = calculateRussianSimilarity(w, secretWord);
+            scoredWords.push({ word: w, score: score });
+        });
+
+        // 2. Сортируем: самые похожие слова улетают наверх (в начало массива)
+        scoredWords.sort((a, b) => b.score - a.score);
+
+        // 3. Ищем, на каком месте (индексе) оказалось слово игрока
+        const index = scoredWords.findIndex(item => item.word === word);
+
+        if (index !== -1) {
+            rank = index + 1; // Ранг — это просто место в списке (+1, так как считаем с нуля)
+        } else {
+            // Если игрок ввел редкое слово, которого нет в базе, считаем его по запасному буквенному режиму
+            let fallbackScore = calculateRussianSimilarity(word, secretWord);
+            // Даем ему далекий ранг в зависимости от плохого score
+            rank = Math.floor(scoredWords.length - (fallbackScore * 1000));
         }
     }
 
