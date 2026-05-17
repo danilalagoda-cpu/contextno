@@ -1075,52 +1075,82 @@ function giveHint() {
     let targetWord = "";
     let targetRank = 9999;
 
-    if (levelDicts[secretWord]) {
-        let availableWords = Object.keys(levelDicts[secretWord]).filter(w => {
-            let r = levelDicts[secretWord][w];
-            return r < bestCurrentRank && !guessedWords.some(g => g.word === w);
-        });
+    // СВЕРХТОЧНЫЙ ПОДСЧЕТ ПОД СИСТЕМУ ИЗ 6 ФАЙЛОВ JSON
+    const allWords = Object.keys(semanticVectors);
+    const scoredWords = [];
 
-        if (availableWords.length > 0) {
-            availableWords.sort((a, b) => levelDicts[secretWord][b] - levelDicts[secretWord][a]);
-            targetWord = availableWords[availableWords.length - 1];
-            targetRank = levelDicts[secretWord][targetWord];
+    // 1. Просчитываем честные ранги для всех 7200 слов
+    allWords.forEach(w => {
+        const cleanKey = w.trim().replace(/["']/g, ''); 
+        const score = calculateRussianSimilarity(cleanKey, secretWord);
+        scoredWords.push({ word: cleanKey, score: score });
+    });
+
+    // Сортируем базу по убыванию сходства (ранг 1, 2, 3...)
+    scoredWords.sort((a, b) => b.score - a.score);
+
+    // 2. Рассчитываем целевой ранг подсказки (улучшаем позицию игрока на 30%)
+    let targetNextRank = 1500; // Если игрок еще ничего не ввёл
+
+    if (bestCurrentRank < 9999) {
+        if (bestCurrentRank > 2000) {
+            targetNextRank = 1500; // Подталкиваем ближе к первой тысяче
+        } else if (bestCurrentRank > 100) {
+            targetNextRank = Math.floor(bestCurrentRank * 0.70); // Шаг вперед на 30%
+        } else {
+            targetNextRank = Math.max(2, bestCurrentRank - 5); // В топ-100 двигаем поштучно
         }
     }
 
-    if (!targetWord) {
-        let availablePool = infiniteWordsPool.filter(w => !guessedWords.some(g => g.word === w) && w !== secretWord);
-        if (availablePool.length > 0) {
-            let targetNextRank = 600;
-            if (bestCurrentRank < 9999) targetNextRank = Math.max(15, Math.floor(bestCurrentRank * 0.7)); 
+    // 3. Ищем в базе слово, максимально близкое к targetNextRank, которое игрок ЕЩЕ НЕ ВВОДИЛ
+    let minDiff = 99999;
+    let bestWordMatch = "";
+    let finalCalculatedRank = 9999;
 
-            let bestWordMatch = availablePool; let minDiff = 9999; let finalCalculatedRank = 600;
+    for (let i = 0; i < scoredWords.length; i++) {
+        const currentRank = i + 1;
+        const pWord = scoredWords[i].word;
 
-            availablePool.forEach(pWord => {
-                let score = calculateRussianSimilarity(pWord, secretWord);
-                let calcRank = Math.floor((1.0 - score) * 800) + 15; 
-                let diff = Math.abs(calcRank - targetNextRank);
-                if (diff < minDiff) { minDiff = diff; bestWordMatch = pWord; finalCalculatedRank = calcRank; }
-            });
+        // Проверяем, вводил ли игрок уже это слово
+        const alreadyGuessed = guessedWords.some(g => g.word === pWord);
 
-            if (bestCurrentRank === 9999 || finalCalculatedRank < bestCurrentRank) {
-                targetWord = bestWordMatch; targetRank = Math.max(12, finalCalculatedRank);
-            } else {
-                targetWord = bestWordMatch; targetRank = Math.max(12, bestCurrentRank - 40);
+        if (!alreadyGuessed && pWord !== secretWord) {
+            let diff = Math.abs(currentRank - targetNextRank);
+            if (diff < minDiff) {
+                minDiff = diff;
+                bestWordMatch = pWord;
+                finalCalculatedRank = currentRank;
             }
         }
     }
 
-    if (!targetWord || (targetRank >= bestCurrentRank && bestCurrentRank <= 12)) {
-        targetWord = secretWord; targetRank = 1;
+    // Присваиваем найденное слово в качестве подсказки
+    if (bestWordMatch) {
+        targetWord = bestWordMatch;
+        targetRank = finalCalculatedRank;
     }
+
+    // Защита: если игрок застрял на самом верху или слов не осталось, выдаем секретное слово
+    if (!targetWord || (targetRank >= bestCurrentRank && bestCurrentRank <= 5)) {
+        targetWord = secretWord;
+        targetRank = 1;
+    }
+
+    // Принудительно применяем наши семантические корректировки, чтобы ранг подсказки совпадал с проверкой
+    if (targetWord === "еда" && ["сметана", "творог", "сыр", "хлеб", "борщ", "кухня", "молоко"].includes(secretWord.trim().toLowerCase())) targetRank = 100;
+    if (secretWord.trim().toLowerCase() === "сметана" && targetWord === "творог") targetRank = 2;
+    if (secretWord.trim().toLowerCase() === "сметана" && targetWord === "сыр") targetRank = 4;
+    if (secretWord.trim().toLowerCase() === "сметана" && targetWord === "молоко") targetRank = 6;
+    if (targetWord === "хлеб" && ["сметана", "творог", "сыр", "еда", "молоко"].includes(secretWord.trim().toLowerCase())) targetRank = Math.min(targetRank, 120);
+    if (["кухня", "повар", "плита"].includes(targetWord) && ["сметана", "творог", "сыр", "хлеб", "еда"].includes(secretWord.trim().toLowerCase())) targetRank = Math.min(targetRank, 180);
 
     const hintWordObj = { word: targetWord, rank: targetRank, isHint: true, userName: playerName };
 
     if (isMultiplayerMode && activeRoomId) {
         db.ref(`rooms/${activeRoomId}/words`).push(hintWordObj);
     } else {
-        hintsUsed++; attempts++;
+        hintsUsed++; 
+        attempts++;
         guessedWords.push(hintWordObj);
         guessedWords.sort((a, b) => a.rank - b.rank);
         updateStatus();
