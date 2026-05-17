@@ -462,29 +462,34 @@ function initLevel() {
     attempts = 0;
     hintsUsed = 0;
     guessedWords = [];
-    hideMessage();
-    document.getElementById('historyLog').innerHTML = '';
-    document.getElementById('winScreen').style.display = 'none';
-    document.getElementById('wordInput').disabled = false;
-    document.getElementById('wordInput').value = '';
-    document.getElementById('customInputBox').style.display = 'none';
-    document.getElementById('customWordError').style.display = 'none';
+    if (typeof hideMessage === "function") hideMessage();
+    
+    // Безопасная очистка элементов интерфейса с проверкой на их существование
+    if (document.getElementById('historyLog')) document.getElementById('historyLog').innerHTML = '';
+    if (document.getElementById('winScreen')) document.getElementById('winScreen').style.display = 'none';
+    if (document.getElementById('wordInput')) {
+        document.getElementById('wordInput').disabled = false;
+        document.getElementById('wordInput').value = '';
+    }
+    if (document.getElementById('customInputBox')) document.getElementById('customInputBox').style.display = 'none';
+    if (document.getElementById('customWordError')) document.getElementById('customWordError').style.display = 'none';
     
     // =========================================================================
-    // АВТОМАТИЧЕСКИЙ ВЫБОР СЛОВА ДЛЯ ОДИНОЧНОЙ ИГРЫ (ФИКС КНОПКИ СОЛО)
+    // БРОНЕБОЙНЫЙ АВТОМАТИЧЕСКИЙ ВЫБОР СЛОВА ДЛЯ ОДИНОЧНОЙ ИГРЫ
     // =========================================================================
     if (!isMultiplayerMode) {
         currentRoomName = "Одиночная игра";
         
-        // 1. Читаем из памяти браузера текущий уровень игрока (если нет — ставим 1-й)
+        // 1. Считываем сохранённый уровень игрока
         currentSingleLevel = parseInt(localStorage.getItem('ctx_single_level_num')) || 1;
         
-        // 2. Собираем чистый пул уровней из нашей ИИ-карты знаний word_groups.json
+        // 2. БЕЗОПАСНАЯ ИИ-СБОРКА УРОВНЕЙ ИЗ КАРТЫ ЗНАНИЙ
         let levelWordsPool = [];
-        if (typeof semanticGroups !== "undefined" && Object.keys(semanticGroups).length > 0) {
+        
+        // КРИТИЧЕСКИЙ ФИКС: Проверяем, инициализирована ли переменная в памяти вообще
+        if (typeof semanticGroups !== "undefined" && semanticGroups !== null && Object.keys(semanticGroups).length > 0) {
             Object.keys(semanticGroups).forEach(groupName => {
                 semanticGroups[groupName].forEach(w => {
-                    // Исключаем абстрактные категории и дубликаты
                     if (!["еда", "животное", "зверь", "здание", "знания"].includes(w) && !levelWordsPool.includes(w)) {
                         levelWordsPool.push(w);
                     }
@@ -492,12 +497,12 @@ function initLevel() {
             });
         }
 
-        // Аварийный список на случай, если файл word_groups ещё догружается в память
+        // Аварийный эталонный список на случай, если файл базы ещё догружается в память
         if (levelWordsPool.length === 0) {
-            levelWordsPool = ["завод", "работа", "станок", "окно", "кухня", "сметана", "творог", "сыр"];
+            levelWordsPool = ["завод", "работа", "станок", "окно", "кухня", "сметана", "творог", "сыр", "кошка", "кот", "собака", "дом", "компьютер", "телефон", "школа", "деньги"];
         }
 
-        // 3. Загадываем слово строго по номеру текущего уровня (бесконечный цикл по кругу)
+        // 3. Загадываем слово строго по номеру текущего уровня
         let wordIdx = (currentSingleLevel - 1) % levelWordsPool.length;
         secretWord = levelWordsPool[wordIdx].trim().toLowerCase();
         
@@ -506,9 +511,9 @@ function initLevel() {
     }
     // =========================================================================
 
-    document.getElementById('gameTitle').innerText = currentRoomName;
-    updateStatus();
-    toggleSubmitBtn();
+    if (document.getElementById('gameTitle')) document.getElementById('gameTitle').innerText = currentRoomName;
+    if (typeof updateStatus === "function") updateStatus();
+    if (typeof toggleSubmitBtn === "function") toggleSubmitBtn();
 }
 
 function updateStatus() {
